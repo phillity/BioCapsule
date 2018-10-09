@@ -251,24 +251,24 @@ def crop(image,mtcnn,out_size=160,margin=44,aligned=False,rot_center=None):
 
 
 
-#database = "images_crop//caltech"
-#extract(database,openface=False)
+database = "images_crop//lfw"
+extract(database,openface=False)
 
 # Load MCTNN model [2]
-mtcnn = MTCNN.MTCNN()
+#mtcnn = MTCNN.MTCNN()
 
-database = "images//RS"
-for dir in os.listdir(database):
-    print(dir)
-    for file_name in os.listdir(database + "//" + dir):
-        print("       " + file_name)
-        image_path = database + "//" + dir + "//" + file_name
-        out_path = "images_align//RS" + "//" + dir + "//" + file_name
+#database = "images//caltech"
+#for dir in os.listdir(database):
+#    print(dir)
+#    for file_name in os.listdir(database + "//" + dir):
+#        print("       " + file_name)
+#        image_path = database + "//" + dir + "//" + file_name
+#        out_path = "images_align//caltech" + "//" + dir + "//" + file_name
 
-        image = cv2.imread(image_path)
-        image = crop(image,mtcnn)
+#        image = cv2.imread(image_path)
+#        image = align(image,mtcnn)
 
-        cv2.imwrite(out_path,image)
+#        cv2.imwrite(out_path,image)
 
 
 

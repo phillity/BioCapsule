@@ -1,7 +1,11 @@
 import numpy as np
+
 from sklearn.svm import SVC
 from sklearn.model_selection import StratifiedKFold
 from sklearn import metrics
+
+from threading import Thread
+from queue import Queue
 
 #def svm_recognition(data,data_flip,labels):
 #    # Initialize result metrics
@@ -54,40 +58,53 @@ from sklearn import metrics
 #    print("Accuracy: " + str(np.mean(Accuracy)) + " (+/- " + str(np.std(Accuracy)) + ")")
 
 
-def auth_confusion_matrix(y_true,f_pred):
-    TP = 0
-    TN = 0
-    FP = 0
-    FN = 0
-    for i in range(y_true.shape[0]):
-        if y_true[i] == 0 and f_pred[i] == 0:
-            TP = TP + 1
-        elif y_true[i] == 1 and f_pred[i] == 1:
-            TN = TN + 1
-        elif y_true[i] == 1 and f_pred[i] == 0:
-            FP = FP + 1
-        else:
-            FN = FN + 1
+def split_list(l,n):
+    for i in range(0, len(l), n):
+        yield l[i:i + n]
 
-    return TP, TN, FP, FN
+### Authentication training thread function
+def svm_authentication_train(c,train,train_labels,que):
+    print("          Training - Class " + str(c))
+    binary_labels = np.zeros(train_labels.shape)
+    binary_labels[train_labels != c] = 1
 
+    svm = SVC(kernel='linear', probability=True)
+    svm.fit(train,binary_labels)
+
+    que.put((c,svm))
+
+### Authentication testing thread function
+def svm_authentication_test(c,svm,test,test_labels,que):
+    print("          Testing - Class " + str(c))
+    
+    binary_labels = np.zeros(test_labels.shape)
+    binary_labels[test_labels != c] = 1
+
+    # Use binary class svm to predict accept/reject test set
+    prediction_prob = svm.predict_proba(test)
+
+    result = []
+    result.append(prediction_prob[:,0])
+    result.append(binary_labels)
+
+    que.put(result)
+
+### AUTHENTICATION
 def svm_authentication(data,data_flip,labels):
-    # Initialize output information
-    thresholds = np.arange(0,1.1,0.1)
-    FAR = np.zeros((5,thresholds.shape[0]))
-    FRR = np.zeros((5,thresholds.shape[0]))
-    ACC = np.zeros((5,thresholds.shape[0]))
+    print("Authentication")
+    ### Initialize output information
+    FAR = np.array([])
+    FRR = np.array([])
+    EER = np.array([])
+    EER_thresh = np.array([])
 
     # Get k-fold split of dataset (k=5)
     cv = StratifiedKFold(n_splits=5,shuffle=True)
     cv.get_n_splits(data,labels)
 
+    ### Perform k-fold cross validation
     for k,(train_index,test_index) in enumerate(cv.split(data,labels)):
-        # Initialize prediction information
-        TP = np.zeros((thresholds.shape[0],1))
-        TN = np.zeros((thresholds.shape[0],1))
-        FP = np.zeros((thresholds.shape[0],1))
-        FN = np.zeros((thresholds.shape[0],1))
+        print("     Fold - " + str(k))
 
         # Get training and testing sets
         train = np.vstack([data[train_index,:],data_flip[train_index,:]])
@@ -97,63 +114,86 @@ def svm_authentication(data,data_flip,labels):
 
         # Get training classes
         classes = np.unique(train_labels)
+        # Split classes into groups of 10 so we will only have 10 threads at once!!!
+        classes_split = list(split_list(classes.tolist(),10))
 
-        # Get binary svm for each training class
+        ### TRAINING
+        # Binary SVM for each class
         class_svms = []
-        for i,c in enumerate(classes):
-            binary_labels = np.zeros(train_labels.shape)
-            binary_labels[train_labels != c] = 1
+        c_idxes = []
+        threads = []
+        que = Queue()
 
-            svm = SVC(kernel='linear', probability=True)
-            svm.fit(train,binary_labels)
-            class_svms.append(svm)
+        # Thread to train each class binary SVM
+        for li in classes_split:
+            for i,c in enumerate(li):
+                threads.append(Thread(target=svm_authentication_train,args=(c,train,train_labels,que)))
+                threads[-1].start()
+            
+            # Collect training thread results
+            _ = [ t.join() for t in threads ]
+            while not que.empty():
+                (c_idx,svm) = que.get()
+                c_idxes.append(c_idx)
+                class_svms.append(svm)
 
-        for i,c in enumerate(classes):
-            binary_labels = np.zeros(test_labels.shape)
-            binary_labels[test_labels != c] = 1
+        ### TESTING
+        y_prob = np.array([])
+        y_true = np.array([])
+        threads = []
+        que = Queue()
+        for li in classes_split:
+            for i,c in enumerate(li):
+                c_idx = c_idxes.index(c)
+                threads.append(Thread(target=svm_authentication_test,args=(c,class_svms[c_idx],test,test_labels,que)))
+                threads[-1].start()
 
-            # Get class c svm
-            svm = class_svms[i]
-
-            # Use binary class svm to accept/reject test set
-            prediction_prob = svm.predict_proba(test)
-
-            for t,thresh in enumerate(thresholds):
-                thresh_labels = np.copy(binary_labels)
-                for p,pred in enumerate(prediction_prob):
-                    if pred[0] > thresh:
-                        thresh_labels[p] = 0
-                    else:
-                        thresh_labels[p] = 1
-
-                TP_c_t, TN_c_t, FP_c_t, FN_c_t = auth_confusion_matrix(binary_labels,thresh_labels)
-                TP[t] = TP[t] + TP_c_t
-                TN[t] = TN[t] + TN_c_t
-                FP[t] = FP[t] + FP_c_t
-                FN[t] = FN[t] + FN_c_t
+            # Collect testing thread results
+            _ = [ t.join() for t in threads ]
+            while not que.empty():
+                result = que.get()
+                y_prob = np.append(y_prob,result[0])
+                y_true = np.append(y_true,result[1])
+           
+        fpr, tpr, thresholds = metrics.roc_curve(y_true, y_prob, pos_label=0)
+        fnr = 1 - tpr
+        eer_threshold = thresholds[np.nanargmin(np.absolute((fnr - fpr)))]
+        eer = fpr[np.nanargmin(np.absolute((fnr - fpr)))]
         
-        # FAR = FPR = FP/(FP+TN)
-        FAR[k,:] = np.reshape(FP / (FP + TN), (thresholds.shape[0],))
-        # FRR = FNR = FN / (TP + FN)
-        FRR[k,:] = np.reshape(FN / (TP + FN), (thresholds.shape[0],))
-        # ACC = (TP + TN) / (TP + TN + FP + FN)
-        ACC[k,:] = np.reshape((TP + TN) / (TP + TN + FP + FN), (thresholds.shape[0],))
+        idx = [i for i,v in enumerate(fpr) if v <= 0.001 and i > 0]
+        
+        if not idx:
+            FAR = np.append(FAR,fpr[1])
+            FRR = np.append(FRR,fnr[1])
+        else:
+            FAR = np.append(FAR,fpr[idx[0]])
+            FRR = np.append(FRR,fnr[idx[0]])
+        EER = np.append(EER,eer)
+        EER_thresh = np.append(EER_thresh,eer_threshold)
+
+        print("FAR: " + str(FAR))
+        print("FAR: " + str(FAR))
+        print("EER: " + str(EER))
         
 
     # Print results
     print("--------------------------------------------------------------------------------------")
     print("Authentication Results:")
-    for t,thresh in enumerate(thresholds):
-        print("Threshold: " + str(thresh) + "   " +
-        "FAR: " + str(np.mean(FAR,axis=0)[t]) + " (+/- " + str(np.std(FAR,axis=0)[t]) + ")   " +
-        "FRR: " + str(np.mean(FRR,axis=0)[t]) + " (+/- " + str(np.std(FRR,axis=0)[t]) + ")   " +
-        "Accuracy: " + str(np.mean(ACC,axis=0)[t]) + " (+/- " + str(np.std(ACC,axis=0)[t]) + ")")
+    print("Threshold: " + str(np.mean(EER_thresh)) + "   " +
+    "FAR: " + str(np.mean(FAR)) + " (+/- " + str(np.std(FAR)) + ")   " +
+    "FRR: " + str(np.mean(FRR)) + " (+/- " + str(np.std(FRR)) + ")   " +
+    "EER: " + str(np.mean(EER)) + " (+/- " + str(np.std(EER)) + ")")
 
-data_path = "caltech_crop_20180408-102900.txt"
+
+data_path = "lfw_crop_20180402-114759.txt"
 print(data_path)
 
+print("Loading data")
 data = np.loadtxt(data_path)
+print("Loading data_flip")
 data_flip = np.loadtxt(data_path[:-4] + "_flip.txt")
+print("\n\n")
+
 
 labels =  data[:,-1]
 data = data[:,:-1]
