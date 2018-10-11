@@ -95,6 +95,7 @@ def svm_authentication(data,data_flip,labels):
     ### Initialize output information
     FAR = np.array([])
     FRR = np.array([])
+    ACC = np.array([])
     EER = np.array([])
     EER_thresh = np.array([])
 
@@ -164,17 +165,24 @@ def svm_authentication(data,data_flip,labels):
         min_idx = np.argmin(fnr[idx])
         idx = idx[min_idx]
         
+        threshold = thresholds[idx]
+        y_pred = np.zeros(y_true.shape)
+        y_pred[y_prob < threshold] = 1
+        acc = metrics.accuracy_score(y_true, y_pred)
+        
         if not idx:
             FAR = np.append(FAR,fpr[1])
             FRR = np.append(FRR,fnr[1])
         else:
             FAR = np.append(FAR,fpr[idx])
             FRR = np.append(FRR,fnr[idx])
+        ACC = np.append(ACC,acc)
         EER = np.append(EER,eer)
         EER_thresh = np.append(EER_thresh,eer_threshold)
 
         print("FAR: " + str(FAR))
         print("FAR: " + str(FAR))
+        print("ACC: " + str(ACC))
         print("EER: " + str(EER))
         
 
@@ -184,10 +192,11 @@ def svm_authentication(data,data_flip,labels):
     print("Threshold: " + str(np.mean(EER_thresh)) + "   " +
     "FAR: " + str(np.mean(FAR)) + " (+/- " + str(np.std(FAR)) + ")   " +
     "FRR: " + str(np.mean(FRR)) + " (+/- " + str(np.std(FRR)) + ")   " +
+    "ACC: " + str(np.mean(ACC)) + " (+/- " + str(np.std(ACC)) + ")   " +
     "EER: " + str(np.mean(EER)) + " (+/- " + str(np.std(EER)) + ")")
 
 
-data_path = "caltech_crop_20180402-114759.txt"
+data_path = "features//caltech_crop_20180402-114759.txt"
 print(data_path)
 
 print("Loading data")
