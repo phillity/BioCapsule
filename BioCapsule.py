@@ -251,7 +251,7 @@ def crop(image,mtcnn,out_size=160,margin=44,aligned=False,rot_center=None):
 
 
 
-database = "images_crop//lfw"
+database = "images_align//lfw"
 extract(database,openface=False)
 
 # Load MCTNN model [2]

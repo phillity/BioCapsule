@@ -161,13 +161,15 @@ def svm_authentication(data,data_flip,labels):
         eer = fpr[np.nanargmin(np.absolute((fnr - fpr)))]
         
         idx = [i for i,v in enumerate(fpr) if v <= 0.001 and i > 0]
+        min_idx = np.argmin(fnr[idx])
+        idx = idx[min_idx]
         
         if not idx:
             FAR = np.append(FAR,fpr[1])
             FRR = np.append(FRR,fnr[1])
         else:
-            FAR = np.append(FAR,fpr[idx[0]])
-            FRR = np.append(FRR,fnr[idx[0]])
+            FAR = np.append(FAR,fpr[idx])
+            FRR = np.append(FRR,fnr[idx])
         EER = np.append(EER,eer)
         EER_thresh = np.append(EER_thresh,eer_threshold)
 
@@ -185,7 +187,7 @@ def svm_authentication(data,data_flip,labels):
     "EER: " + str(np.mean(EER)) + " (+/- " + str(np.std(EER)) + ")")
 
 
-data_path = "lfw_crop_20180402-114759.txt"
+data_path = "caltech_crop_20180402-114759.txt"
 print(data_path)
 
 print("Loading data")
