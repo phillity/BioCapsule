@@ -1,19 +1,19 @@
 import facenet
-import detect_face
 import tensorflow as tf
 import numpy as np
 import cv2
 
 class FNET():
-    def __init__(self):
+    def __init__(self,model_name):
         print('Loading feature extraction model')
     
         self.sess = tf.Session()
         
         # 20180402-114759//20180402-114759.pb 0.9905 CASIA-WebFace Inception ResNet v1
-        #facenet.load_model("models//20180402-114759//20180402-114759.pb")
         # 20180408-102900//20180408-102900.pb 0.9965 VGGFace2 Inception ResNet v1
-        facenet.load_model("models//20180408-102900//20180408-102900.pb")
+        model_path = "models//" + model_name + "//" + model_name + ".pb"
+        facenet.load_model(model_path)
+        
 
         # Get input and output tensors
         self.images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")

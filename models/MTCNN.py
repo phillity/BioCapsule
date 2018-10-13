@@ -1,4 +1,3 @@
-import facenet
 import detect_face
 import tensorflow as tf
 import numpy as np
