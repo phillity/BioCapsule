@@ -1,33 +1,30 @@
 # Image Preprocessing
 
-# References:
-# [1] Y. Sui, X. Zou, E. Y. Du and F. Li, "Secure and privacy-preserving biometrics based active authentication," 2012 IEEE International Conference on Systems, Man, and Cybernetics (SMC), Seoul, 2012, pp. 1291-1296.
-# https://ieeexplore.ieee.org/document/6377911/
-# [2] K. Zhang, Z. Zhang, Z. Li and Y. Qiao, "Joint Face Detection and Alignment Using Multitask Cascaded Convolutional Networks," in IEEE Signal Processing Letters, vol. 23, no. 10, pp. 1499-1503, Oct. 2016.
-# https://ieeexplore.ieee.org/document/7553523/
-# [3] F. Schroff, D. Kalenichenko and J. Philbin, "FaceNet: A unified embedding for face recognition and clustering," 2015 IEEE Conference on Computer Vision and Pattern Recognition (CVPR), Boston, MA, 2015, pp. 815-823.
-# http://ieeexplore.ieee.org/document/7298682/
-# [4] O. M. Parkhi, A. Vedaldi, and A. Zisserman, "Deep face recognition," in Proc. Brit. Mach. Vis. Conf., 2015, vol. 1. no. 3, p. 6.
-# https://www.robots.ox.ac.uk/~vgg/publications/2015/Parkhi15/parkhi15.pdf
-# [5] B. Amos, B. Ludwiczuk, M. Satyanarayanan, "Openface: A general-purpose face recognition library with mobile applications," CMU-CS-16-118, CMU School of Computer Science, Tech. Rep., 2016.
-# http://cmusatyalab.github.io/openface/
-
 import cv2
 import numpy as np
 import sys
 import os
+import time
+from face_models.MTCNN import MtcnnService
 
-sys.path.append("models")
-from models import MTCNN
+def rect_point_dist(rect,center):
+    rect_center = (rect[0] + rect[1]) / 2
+    y = rect_center[0]
+    x = rect_center[1]
+    height = rect[1,0] - rect[0,0]
+    width = rect[1,1] - rect[0,1]
 
-# MTCNN face detection/alignment function [2]
-#   image - image filename to perform facial detection/alignment
-#   mtcnn - MTCNN model to use for facial detection/alignment
-def align(image,mtcnn):
-    # Get image size and center point
-    h, w = image.shape[:2]
-    cX = w / 2
-    cY = h / 2
+    py = center[0]
+    px = center[1]
+    
+    dx = max(np.abs(px - x) - width / 2, 0)
+    dy = max(np.abs(py - y) - height / 2, 0)
+    return dx * dx + dy * dy
+
+def align(image):
+    # Convert image to BGR if grayscale
+    if len(image.shape) < 3:
+        image = cv2.cvtColor(image,cv2.COLOR_GRAY2BGR)
 
     # Get RGB version of BGR OpenCV image
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -35,26 +32,29 @@ def align(image,mtcnn):
     # Get face bounding box and landmarks using MTCNN method [2]
     # Face bounding box points [top_left,bottom_right]
     # Face landmark points [eye_right,eye_left,nose,mouth_right,mouth_left]
-    face_bb, face_pts = mtcnn.detect(image_rgb)
+    face_bb, face_pts = MtcnnService().detect(image_rgb)
 
     # Get number of faces detected
     nrof_faces = face_bb.shape[0]
 
     # No faces are detected
     if nrof_faces == 0:
-        raise ValueError("No faces detected in user image! (align)")
+        raise ValueError('No faces detected in user image! (align)')        
+        print('No faces detected in user image! (align)')
+        return image
     
     # Multiple faces are detected
     if nrof_faces > 1:
-        print("Multiple faces detected in user image! (align)")
+        print('Multiple faces detected in user image! (align)')
 
-        sizes = []
+        # Choose face closest to center of image
+        img_center = np.array([image.shape[0]/2,image.shape[1]/2])
+        dists = []
         for i in range(face_bb.shape[0]):
-            l = np.maximum(face_bb[i][2],0) - np.maximum(face_bb[i][0],0)
-            w = np.maximum(face_bb[i][3],0) - np.maximum(face_bb[i][1],0)
-            sizes.append(l*w)
+            face_rect = np.array([[face_bb[i,0],face_bb[i,1]],[face_bb[i,2],face_bb[i,3]]])
+            dists.append(rect_point_dist(face_rect,img_center))
 
-        idx = sizes.index(max(sizes))
+        idx = dists.index(min(dists))
         face_pts = face_pts[:,idx] 
     
     # One face is detected (or largest of multiple face detections)
@@ -89,50 +89,43 @@ def align(image,mtcnn):
 
     # Perform rotation
     image = cv2.warpAffine(image, M, (nW, nH))
+    eye_center = M @ eye_center
 
-    # Get eye center point after rotation
-    eye_center = M @ eye_center 
+    return crop(image,aligned=True,rot_center=eye_center)
 
-    #cv2.circle(image,(int(eye_center[0]),int(eye_center[1])),1,(255,0,0),3)
-    #cv2.imshow("rotated",image)
-    #cv2.waitKey(0)
+def crop(image,out_size=160,margin=44,aligned=False,rot_center=None):
+    # Convert image to BGR if grayscale
+    if len(image.shape) < 3:
+        image = cv2.cvtColor(image,cv2.COLOR_GRAY2BGR)
 
-    return crop(image,mtcnn,aligned=True,rot_center=eye_center)
-
-# MTCNN face detection (without alignment) function [2]
-#   image - image filename to perform facial detection/alignment
-#   mtcnn - MTCNN model to use for facial detection/alignment
-#   out_size - output size of image
-#   margin - pixel area around detected face to preserve
-#   aligned - flag set if image has been aligned by rotation
-#   eye_center - center point used for rotation
-def crop(image,mtcnn,out_size=160,margin=44,aligned=False,rot_center=None):
     # Get RGB version of BGR OpenCV image
     image_rgb = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
 
     # Get face bounding box and landmarks using MTCNN method [2]
     # Face bounding box points [top_left,bottom_right]
-    bb, pts = mtcnn.detect(image_rgb)
+    bb, pts = MtcnnService().detect(image_rgb)
 
     # Get number of faces detected
     nrof_faces = bb.shape[0]
 
     # No faces are detected
     if nrof_faces == 0:
-        raise ValueError("No faces detected in user image! (crop)")
+        raise ValueError('No faces detected in user image! (crop)')
+        print('No faces detected in user image! (crop)')
+        return image
     # Multiple faces are detected
     if nrof_faces > 1:
-        print("Multiple faces detected in user image! (crop)")
+        print('Multiple faces detected in user image! (crop)')
 
-        # Choose largest face
+        # Choose face closest to center of image
+        img_center = np.array([image.shape[0]/2,image.shape[1]/2])
         if aligned == False:
-            sizes = []
+            dists = []
             for i in range(bb.shape[0]):
-                l = np.maximum(bb[i][2]+margin/2,0) - np.maximum(bb[i][0]-margin/2,0)
-                w = np.maximum(bb[i][3]+margin/2,0) - np.maximum(bb[i][1]-margin/2,0)
-                sizes.append(l*w)
+                face_rect = np.array([[bb[i,0],bb[i,1]],[bb[i,2],bb[i,3]]])
+                dists.append(rect_point_dist(face_rect,img_center))
 
-            idx = sizes.index(max(sizes))
+            idx = dists.index(min(dists))
             bb[0] = bb[idx] 
         # Choose face we used for alignment
         else:
@@ -173,16 +166,9 @@ def crop(image,mtcnn,out_size=160,margin=44,aligned=False,rot_center=None):
     # Return detected face
     return face
 
-
-def preprocess(database,model,mode="crop"):
-    if mode == "crop":
-        in_database = "images//" + database + "//"
-        out_database = "images_crop//" + database + "//"
-
-    else:
-        in_database = "images//" + database + "//"
-        out_database = "images_align//" + database + "//"
-
+def preprocess(database,mode='crop'):
+    in_database = 'images//' + database + '//'
+    out_database = 'images_' + mode + '//' + database + '//'
     for dir in os.listdir(in_database):
         print(dir)
         for file_name in os.listdir(in_database + dir):
@@ -191,17 +177,15 @@ def preprocess(database,model,mode="crop"):
             out_path = out_database + dir + "//" + file_name
 
             image = cv2.imread(image_path)
-            if mode == "crop":
-                image = crop(image,mtcnn)
+            if mode == 'crop':
+                image = crop(image)
             else:
-                image = align(image,mtcnn)
+                image = align(image)
 
             cv2.imwrite(out_path,image)
 
 
-
-
-mtcnn = MTCNN.MTCNN()
-database = "lfw"
-preprocess(database,mtcnn,"align")
+MtcnnService()
+database = 'lfw'
+preprocess(database,'align')
 

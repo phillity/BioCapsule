@@ -81,7 +81,7 @@ https://ieeexplore.ieee.org/document/1334679
 
 [2] M. A. Dabbah, W. L. Woo and S. S. Dlay, "Secure Authentication for Face Recognition," 2007 IEEE Symposium on Computational Intelligence in Image and Signal Processing, Honolulu, HI, 2007, pp. 121-126.
 
-https://ieeexplore.ieee.org/document/6294772
+https://ieeexplore.ieee.org/document/4221405
 
 (ORL Face Database - 96% Accuracy)
 
@@ -96,3 +96,9 @@ https://ieeexplore.ieee.org/document/1613078
 https://ieeexplore.ieee.org/document/5658142
 
 (IMM Face Database - 6% EER)
+
+[5] M. Osadchy, B. Pinkas, A. Jarrous and B. Moskovich, "SCiFI - A System for Secure Face Identification," 2010 IEEE Symposium on Security and 
+
+https://ieeexplore.ieee.org/document/5504789
+
+(CMU PIE Face Database - 80% rank 1 match)

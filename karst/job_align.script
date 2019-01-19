@@ -1,7 +1,0 @@
-#!/bin/bash 
-  #PBS -k o 
-  #PBS -l nodes=1:ppn=1,walltime=5:00:00 
-  #PBS -M phillity@iu.edu
-  #PBS -N lfw_align
-  #PBS -j oe 
-  python Classification_py2.py lfw_crop_20180408-102900.txt
