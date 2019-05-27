@@ -1,13 +1,11 @@
+# Authentication Experiment script
 import numpy as np
-
 from sklearn.svm import SVC
 from sklearn.model_selection import StratifiedKFold
 from sklearn import metrics
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
-
 import matplotlib.pyplot as plt
-
 from threading import Thread
 from queue import Queue
 import sys

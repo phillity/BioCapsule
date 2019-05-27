@@ -1,74 +1,72 @@
+# Identification Experiment script
 import numpy as np
-
 from sklearn.svm import SVC
 from sklearn.model_selection import StratifiedKFold
 from sklearn import metrics
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
-
 import matplotlib.pyplot as plt
-
 from threading import Thread
 from queue import Queue
 import sys
 
-### Identification
-def identification(data,data_flip,labels,thread_cnt,data_filename):
+
+def identification(data, data_flip, labels, thread_cnt, data_filename):
     print("Identification")
 
     # Get k-fold split of dataset (k=5)
-    cv = StratifiedKFold(n_splits=5,shuffle=False,random_state=1)
-    cv.get_n_splits(data,labels)
+    cv = StratifiedKFold(n_splits=5, shuffle=False, random_state=1)
+    cv.get_n_splits(data, labels)
 
     ### Perform k-fold cross validation
     y_prob_list = []
     y_pred = np.array([])
     y_true = np.array([])
-    for k,(train_index,test_index) in enumerate(cv.split(data,labels)):
+    for k, (train_index, test_index) in enumerate(cv.split(data, labels)):
         print("     Fold - " + str(k))
 
         # Get training and testing sets
-        train = np.vstack([data[train_index,:],data_flip[train_index,:]])
-        train_labels = np.append(labels[train_index],labels[train_index])
-        test = data[test_index,:]
+        train = np.vstack([data[train_index, :], data_flip[train_index, :]])
+        train_labels = np.append(labels[train_index], labels[train_index])
+        test = data[test_index, :]
         test_labels = labels[test_index]
 
         # Normalize to z-scores
-        mu = np.mean(train,axis=0)
-        std = np.std(train,axis=0)
+        mu = np.mean(train, axis=0)
+        std = np.std(train, axis=0)
         train = (train - mu) / std
         test = (test - mu) / std
 
         # Get training classes
         classes = np.unique(train_labels)
 
-        ### TRAINING
+        # Training
         svm = SVC(kernel='linear', probability=True)
-        svm.fit(train,train_labels)
+        svm.fit(train, train_labels)
 
-        ### TESTING
+        # Testing
         prediction = svm.predict(test)
         prob = svm.predict_proba(test)
 
-        for i,label in enumerate(test_labels):
+        for i, label in enumerate(test_labels):
             j = int(label-1)
-            y_prob_list.append(prob[i,j]) 
+            y_prob_list.append(prob[i, j])
 
-        y_true = np.append(y_true,test_labels)
-        y_pred = np.append(y_pred,prediction)
-    
+        y_true = np.append(y_true, test_labels)
+        y_pred = np.append(y_pred, prediction)
+
     print()
 
-    ### OVERALL RESULTS    
-    confusion_matrix = metrics.confusion_matrix(y_true,y_pred)
+    # Overall Results
+    confusion_matrix = metrics.confusion_matrix(y_true, y_pred)
     TP = 0
     FP = 0
     FN = 0
     TN = 0
     for i in range(confusion_matrix.shape[0]):
-        TP_i = confusion_matrix[i,i]
-        FP_i = np.sum(confusion_matrix[i,:]) - TP_i
-        FN_i = np.sum(confusion_matrix[:,i]) - TP_i
+        TP_i = confusion_matrix[i, i]
+        FP_i = np.sum(confusion_matrix[i, :]) - TP_i
+        FN_i = np.sum(confusion_matrix[:, i]) - TP_i
         TN_i = np.sum(np.sum(confusion_matrix)) - TP_i - FP_i - FN_i
 
         TP = TP + TP_i
@@ -138,10 +136,8 @@ data_flip = np.loadtxt(data_path[:-4] + "_flip.txt")
 print("\n\n")
 
 
-labels =  data[:,-1]
-data = data[:,:-1]
-data_flip = data_flip[:,:-1]
+labels =  data[:, -1]
+data = data[:, :-1]
+data_flip = data_flip[:, :-1]
 
-identification(data,data_flip,labels,10,data_filename)
-
-
+identification(data,data_flip, labels, 10, data_filename)

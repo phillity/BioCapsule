@@ -1,12 +1,10 @@
-# Feature Extraction
-
+# Feature Extraction script
 import cv2
 import numpy as np
 import sys
 import os
 import time
 import pickle
-
 from face_models.FNET import FnetService
 
 def extract(database_name):

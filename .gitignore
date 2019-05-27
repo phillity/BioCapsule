@@ -1,0 +1,7 @@
+*.vscode
+/images/**/
+/data/**/
+/data/__pycache__/**/
+/__pycache__
+/__pycache__/**/
+/face_models/__pycache__/**/
