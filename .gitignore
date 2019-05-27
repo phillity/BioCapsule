@@ -1,6 +1,9 @@
 *.vscode
+/images/
 /images/**/
+/images_align/
 /images_align/**/
+/data/
 /data/**/
 /__pycache__
 /face_models/__pycache__/

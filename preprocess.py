@@ -1,9 +1,9 @@
-# Image Preprocessing script
+# Preprocessing script
+import os
+import sys
+from argparse import ArgumentParser
 import cv2
 import numpy as np
-import sys
-import os
-import time
 from face_models.MTCNN import MtcnnService
 
 
@@ -13,10 +13,8 @@ def rect_point_dist(rect, center):
     x = rect_center[1]
     height = rect[1, 0] - rect[0, 0]
     width = rect[1, 1] - rect[0, 1]
-
     py = center[0]
     px = center[1]
-
     dx = max(np.abs(px - x) - width / 2, 0)
     dy = max(np.abs(py - y) - height / 2, 0)
     return dx * dx + dy * dy
@@ -30,9 +28,9 @@ def align(image):
     # Get RGB version of BGR OpenCV image
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # Get face bounding box and landmarks using MTCNN method [2]
-    # Face bounding box points [top_left,bottom_right]
-    # Face landmark points [eye_right,eye_left,nose,mouth_right,mouth_left]
+    # Get face bounding box and landmarks using MTCNN method
+    # Face bounding box points [top_left, bottom_right]
+    # Face landmark points [eye_right, eye_left, nose, mouth_right, mouth_left]
     face_bb, face_pts = MtcnnService().detect(image_rgb)
 
     # Get number of faces detected
@@ -40,7 +38,7 @@ def align(image):
 
     # No faces are detected
     if nrof_faces == 0:
-        raise ValueError('No faces detected in user image! (align)')        
+        raise ValueError('No faces detected in user image! (align)')
         print('No faces detected in user image! (align)')
         return image
 
@@ -58,7 +56,7 @@ def align(image):
         idx = dists.index(min(dists))
         face_pts = face_pts[:, idx]
 
-    # One face is detected (or largest of multiple face detections)
+    # One face is detected (or center-most of multiple face detections)
     # Get left and right eye points
     eye_left = (face_pts[1], face_pts[6])
     eye_right = (face_pts[0], face_pts[5])
@@ -103,8 +101,8 @@ def crop(image, out_size=160, margin=44, aligned=False, rot_center=None):
     # Get RGB version of BGR OpenCV image
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # Get face bounding box and landmarks using MTCNN method [2]
-    # Face bounding box points [top_left,bottom_right]
+    # Get face bounding box and landmarks using MTCNN method
+    # Face bounding box points [top_left, bottom_right]
     bb, pts = MtcnnService().detect(image_rgb)
 
     # Get number of faces detected
@@ -148,8 +146,8 @@ def crop(image, out_size=160, margin=44, aligned=False, rot_center=None):
             idx = dists.index(min(dists))
             bb[0] = bb[idx]
 
-    # One face is detected (or largest of multiple face detections)
-    # Format face boudning box
+    # One face is detected (or center-most of multiple face detections)
+    # Format face bounding box
     bb = np.around(bb[0]).astype(int)
     bb[0] = np.maximum(bb[0] - margin / 2, 0)
     bb[1] = np.maximum(bb[1] - margin / 2, 0)
@@ -161,7 +159,7 @@ def crop(image, out_size=160, margin=44, aligned=False, rot_center=None):
         face_bb.append((bb[i], bb[i + 1]))
 
     # Get face detection
-    face = image[face_bb[0, 1]:face_bb[1, 1], face_bb[0, 0]:face_bb[1, 0]]
+    face = image[face_bb[0][1]:face_bb[1][1], face_bb[0][0]:face_bb[1][0]]
 
     # Resize face image
     face = cv2.resize(face, (out_size, out_size))
@@ -170,25 +168,36 @@ def crop(image, out_size=160, margin=44, aligned=False, rot_center=None):
     return face
 
 
-def preprocess(database, mode='align'):
-    in_database = 'images//' + database + '//'
-    out_database = 'images_' + mode + '//' + database + '//'
-    for dir in os.listdir(in_database):
-        print(dir)
-        for file_name in os.listdir(in_database + dir):
-            print('       ' + file_name)
-            image_path = in_database + dir + '//' + file_name
-            out_path = out_database + dir + '//' + file_name
+def preprocess(database, mode):
+    cur_path = os.path.dirname(__file__)
+    database_path = os.path.join(cur_path, 'images', database)
+    for subject in os.listdir(database_path):
+        subject_path = os.path.join(database_path, subject)
+        print(subject_path)
+        for image in os.listdir(subject_path):
+            image_path = os.path.join(subject_path, image)
+            print(image_path)
 
-            image = cv2.imread(image_path)
+            img = cv2.imread(image_path)
             if mode == 'crop':
-                image = crop(image)
+                img = crop(img)
             else:
-                image = align(image)
+                img = align(img)
 
-            cv2.imwrite(out_path, image)
+            out_path = os.path.join(cur_path, 'images_align', database, subject, image)
+            cv2.imwrite(out_path, img)
 
 
+# Initialize MTCNN model
 MtcnnService()
-database = 'lfw'
-preprocess(database, 'align')
+
+# Parse command line arguments
+parser = ArgumentParser()
+parser.add_argument('-d', '--database', required=True,
+                    help='database to perform preprocessing on')
+parser.add_argument('-m', '--mode', choices=['crop', 'align'], default='align',
+                    help='preprocess using crop or align')
+args = vars(parser.parse_args())
+
+# Perform preprocessing
+preprocess(args['database'], args['mode'])
