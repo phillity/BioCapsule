@@ -56,9 +56,9 @@ class FnetService():
     @staticmethod
     async def initFnetModel(self):
         self.__instance.sess = tf.Session()
-        # 20180408-102900//20180408-102900.pb 0.9965 VGGFace2 Inception ResNet v1
+        # 20180402-114759.pb 0.9965 VGGFace2 Inception ResNet v1
         dir = os.path.dirname(__file__)
-        model_path = os.path.join(dir, '20180408-102900.pb')
+        model_path = os.path.join(dir, '20180402-114759.pb')
         facenet.load_model(model_path)
 
         # Get input and output tensors
