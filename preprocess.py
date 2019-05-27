@@ -170,7 +170,7 @@ def crop(image, out_size=160, margin=44, aligned=False, rot_center=None):
     return face
 
 
-def preprocess(database, mode='crop'):
+def preprocess(database, mode='align'):
     in_database = 'images//' + database + '//'
     out_database = 'images_' + mode + '//' + database + '//'
     for dir in os.listdir(in_database):
