@@ -38,7 +38,7 @@ def align(image):
 
     # No faces are detected
     if nrof_faces == 0:
-        raise ValueError('No faces detected in user image! (align)')
+        # raise ValueError('No faces detected in user image! (align)')
         print('No faces detected in user image! (align)')
         return image
 
@@ -110,7 +110,7 @@ def crop(image, out_size=160, margin=44, aligned=False, rot_center=None):
 
     # No faces are detected
     if nrof_faces == 0:
-        raise ValueError('No faces detected in user image! (crop)')
+        # raise ValueError('No faces detected in user image! (crop)')
         print('No faces detected in user image! (crop)')
         return image
     # Multiple faces are detected
@@ -194,7 +194,7 @@ MtcnnService()
 # Parse command line arguments
 parser = ArgumentParser()
 parser.add_argument('-d', '--database', required=True,
-                    help='database to perform preprocessing on')
+                    help='database to perform preprocessing upon')
 parser.add_argument('-m', '--mode', choices=['crop', 'align'], default='align',
                     help='preprocess using crop or align')
 args = vars(parser.parse_args())

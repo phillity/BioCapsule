@@ -56,7 +56,7 @@ FnetService()
 # Parse command line arguments
 parser = ArgumentParser()
 parser.add_argument('-d', '--database', required=True,
-                    help='database to perform feature extraction on')
+                    help='database to perform feature extraction upon')
 args = vars(parser.parse_args())
 
 # Perform feature extraction
