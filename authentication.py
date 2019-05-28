@@ -33,14 +33,12 @@ def authentication_test(c, svm, test, test_labels, que):
     binary_labels = np.ones(test_labels.shape)
     binary_labels[test_labels != c] = 0
 
-    # Use binary class svm to predict accept/reject test set
     prediction_prob = svm.predict_proba(test)
 
     result = []
     result.append(prediction_prob[:, 1])
     result.append(binary_labels)
     result.append(c)
-
     que.put(result)
 
 
