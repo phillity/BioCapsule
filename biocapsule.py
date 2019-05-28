@@ -154,6 +154,6 @@ parser.add_argument('-d', '--database', required=True,
                     help='database to use in biocapsule generation')
 args = vars(parser.parse_args())
 
-# Perform feature extraction
+# Perform biocapsule generation extraction
 biocapsule_unique_rs(args['database'])
 biocapsule_same_rs(args['database'])

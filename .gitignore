@@ -7,3 +7,6 @@
 /data/**/
 /__pycache__
 /face_models/__pycache__/
+authentication.script
+identification.script
+helper.py
