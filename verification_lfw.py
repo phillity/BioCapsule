@@ -8,9 +8,17 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn import metrics
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as pyplot
 import matplotlib
 from latex_format import latexify
+
+
+under_true = np.array([])
+under_prob = np.array([])
+same_true = np.array([])
+same_prob = np.array([])
+uni_true = np.array([])
+uni_prob = np.array([])
 
 
 def subject_dict():
@@ -53,7 +61,7 @@ def eer_threshold_calc(features):
 
 def verification(mode):
     eer_thresholds, scaling_factors = verification_train(mode)
-    verification_test(mode, eer_thresh, scaling_factors)
+    verification_test(mode, eer_thresholds, scaling_factors)
 
 
 def verification_train(mode):
@@ -80,18 +88,16 @@ def verification_train(mode):
     feats = np.empty((0, 513))
     eer_thresholds = []
     scaling_factors = []
-    # vcount = 0
     for i, ele in enumerate(people_list):
         if i == 0 or len(ele) == 1:
             if feats.shape[0] > 0:
                 eer_threshold, scaling_factor = eer_threshold_calc(feats)
                 eer_thresholds.append(eer_threshold)
                 scaling_factors.append(scaling_factor)
+
             feats = np.empty((0, 513))
-            # count = 0
             continue
 
-        # count += int(ele[1]) * 2
         label = lfw_subjects[ele[0]]
         idx = np.where(labels == label)[0]
         feat = data[idx, :]
@@ -128,7 +134,7 @@ def verification_test(mode, eer_thresholds, scaling_factors):
     dists_diff = []
     k = 0
     factor = scaling_factors[k]
-    eer_threshold = eer_thresholds[k]
+    threshold = eer_thresholds[k]
     for i, ele in enumerate(pairs_list):
         if len(ele) < 3:
             if len(dists_same) > 0:
@@ -137,7 +143,7 @@ def verification_test(mode, eer_thresholds, scaling_factors):
 
                 y_true = np.append(np.ones(dists_same.shape[0]), np.zeros(dists_diff.shape[0]))
                 y_prob = np.append(dists_same, dists_diff)
-                y_pred = y_prob >= eer_threshold
+                y_pred = y_prob >= threshold
 
                 tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred).ravel()
                 acc.append(metrics.accuracy_score(y_true, y_pred))
@@ -148,44 +154,47 @@ def verification_test(mode, eer_thresholds, scaling_factors):
                 eer.append(brentq(lambda x: 1. - x - interp1d(fpr, tpr)(x), 0., 1.))
                 auc.append(metrics.roc_auc_score(y_true, y_prob))
 
+                if mode == 'under':
+                    all_true = np.append(all_true, y_true)
+                    all_prob = np.append(all_prob, y_prob)
+                elif mode == 'same':
+                    same_true = np.append(same_true, y_true)
+                    same_prob = np.append(same_prob, y_prob)
+                else:
+                    uni_true = np.append(uni_true, y_true)
+                    uni_prob = np.append(uni_prob, y_prob)
+
                 k += 1
-                factor = scaling_factors[k]
-                eer_threshold = eer_thresholds[k]
+
             dists_same = []
             dists_diff = []
             continue
 
+        factor = scaling_factors[k]
+        threshold = threshold[k]
+
         if len(ele) == 3:
-            s = ele[0]
-            f_1 = ele[1]
-            f_2 = ele[1]
-
-            label = lfw_subjects[s]
-            idx = np.where(labels == label)
+            label = lfw_subjects[ele[0]]
+            idx = np.where(labels == label)[0]
             feats = data[idx, :]
-            feat_1 = feats[int(f_1) - 1, :]
-            feat_2 = feats[int(f_1) - 1, :]
+            feat_1 = feats[int(ele[1]) - 1, :-1]
+            feat_2 = feats[int(ele[2]) - 1, :-1]
 
-            dist = 1. - (np.linalg.norm(feat_1 - feat_2) / factor)
+            dist = max(1. - (np.linalg.norm(feat_1 - feat_2) / factor), 0.)
             dists_same.append(dist)
 
         else:
-            s_1 = ele[0]
-            f_1 = ele[1]
-            s_2 = ele[2]
-            f_2 = ele[3]
-
-            label = lfw_subjects[s_1]
-            idx = np.where(labels == label)
+            label = lfw_subjects[ele[0]]
+            idx = np.where(labels == label)[0]
             feats = data[idx, :]
-            feat_1 = feats[int(f_1) - 1, :]
+            feat_1 = feats[int(ele[1]) - 1, :-1]
 
-            label = lfw_subjects[s_2]
-            idx = np.where(labels == label)
+            label = lfw_subjects[ele[2]]
+            idx = np.where(labels == label)[0]
             feats = data[idx, :]
-            feat_2 = feats[int(f_2) - 1, :]
+            feat_2 = feats[int(ele[3]) - 1, :-1]
 
-            dist = 1. - (np.linalg.norm(feat_1 - feat_2) / factor)
+            dist = max(1. - (np.linalg.norm(feat_1 - feat_2) / factor), 0.)
             dists_diff.append(dist)
 
     # Average results of all folds
@@ -200,6 +209,27 @@ def verification_test(mode, eer_thresholds, scaling_factors):
     print()
 
 
+# Perform verification experiment
 verification('under')
 verification('same')
 verification('uni')
+
+# Generate ROC
+latexify()
+
+fpr, tpr, thresholds = metrics.roc_curve(under_true, under_prob, pos_label=1)
+pyplot.plot(fpr, tpr, color='blue', label='Underlying System')
+fpr, tpr, thresholds = metrics.roc_curve(same_true, same_prob, pos_label=1)
+pyplot.plot(fpr, tpr, color='green', label='Same RS System')
+fpr, tpr, thresholds = metrics.roc_curve(uni_true, uni_prob, pos_label=1)
+pyplot.plot(fpr, tpr, color='purple', label='Unique RS System')
+
+pyplot.title('LFW Facial Verification ROC Curve')
+pyplot.xlabel('False Positive Rate')
+pyplot.ylabel('True Positive Rate')
+pyplot.legend(loc='lower right')
+pyplot.xlim([0.0, 1.0])
+pyplot.ylim([0.0, 1.05])
+pyplot.tight_layout()
+# pyplot.show()
+pyplot.savefig('lfw_roc.pdf')
