@@ -1,11 +1,11 @@
-# BioCapsule Generation script
+# Signature/Key Experiment script
 import os
 import sys
 from argparse import ArgumentParser
-import cv2
 import numpy as np
 import matplotlib
 from matplotlib import pyplot
+from latex_format import latexify
 
 
 def signature_extraction(feature):
@@ -97,34 +97,34 @@ def signature_key_experiment(database):
     sig_diff_cmp = sig_diff_cmp[idx]
     key_diff_cmp = key_diff_cmp[idx]
 
-    matplotlib.rcParams.update({'font.size': 32})
-    pyplot.rcParams["font.family"] = "Times New Roman"
-    pyplot.style.use('seaborn-deep')
+    latexify()
     if database == 'caltech':
-        pyplot.title("Caltech Faces 1999 Signature Stability/Distinguishability")
+        pyplot.title('Caltech Faces 1999 Signature Stability/Distinguishability')
     elif database == 'gt':
-        pyplot.title("GeoTech Face Database Signature Stability/Distinguishability")
+        pyplot.title('GeoTech Face Database Signature Stability/Distinguishability')
     else:
-        pyplot.title("LFW Signature Stability/Distinguishability")
+        pyplot.title('LFW Signature Stability/Distinguishability')
     pyplot.ylabel('Occurrences')
     pyplot.xlabel('Number of Differences in Compared Signatures')
-    pyplot.hist([sig_same_cmp, sig_diff_cmp], np.arange(33), alpha=0.5, label=['Intraclass Comparisons', 'Interclass Comparisons'], color=["blue", "red"])
-    pyplot.legend(loc='upper left')
-    pyplot.show()
+    pyplot.hist([sig_same_cmp, sig_diff_cmp], np.arange(33), alpha=0.5, color=['blue', 'red'])
+    pyplot.tight_layout()
+    # pyplot.show()
+    pyplot.savefig(database + '_sig.pdf')
+    pyplot.close()
 
-    pyplot.rcParams["font.family"] = "Times New Roman"
-    pyplot.style.use('seaborn-deep')
     if database == 'caltech':
-        pyplot.title("Caltech Faces 1999 Key Stability/Distinguishability")
+        pyplot.title('Caltech Faces 1999 Key Stability/Distinguishability')
     elif database == 'gt':
-        pyplot.title("GeoTech Face Database Key Stability/Distinguishability")
+        pyplot.title('GeoTech Face Database Key Stability/Distinguishability')
     else:
-        pyplot.title("LFW Key Stability/Distinguishability")
+        pyplot.title('LFW Key Stability/Distinguishability')
     pyplot.ylabel('Occurrences')
     pyplot.xlabel('Number of Differences in Compared Keys')
-    pyplot.hist([key_same_cmp, key_diff_cmp], np.arange(0, 520, 10), alpha=0.5, label=['Intraclass Comparisons', 'Interclass Comparisons'], color=["blue", "red"])
+    pyplot.hist([key_same_cmp, key_diff_cmp], np.arange(0, 520, 10), alpha=0.5, label=['Intraclass Comparisons', 'Interclass Comparisons'], color=['blue', 'red'])
     pyplot.legend(loc='upper right')
-    pyplot.show()
+    pyplot.tight_layout()
+    # pyplot.show()
+    pyplot.savefig(database + '_key.pdf')
 
 
 # Parse command line arguments

@@ -146,7 +146,6 @@ def authentication(database, folds, mode, thread_cnt):
         fpr, tpr, thresholds = metrics.roc_curve(y_true, y_prob, pos_label=1)
         eer = brentq(lambda x: 1. - x - interp1d(fpr, tpr)(x), 0., 1.)
         auc.append(metrics.roc_auc_score(y_true, y_prob))
-        eer_thresh.append(interp1d(fpr, thresholds)(eer))
 
     # Average results of all folds
     print('--------------------------------------------------------------------------------------')
@@ -154,9 +153,8 @@ def authentication(database, folds, mode, thread_cnt):
     print('ACC: ' + str(np.mean(acc) * 100.) + '\n' +
           'FAR: ' + str(np.mean(far) * 100.) + '\n' +
           'FRR: ' + str(np.mean(frr) * 100.) + '\n' +
-          'AUC: ' + str(np.mean(auc) * 100.) + '\n' +
           'EER: ' + str(np.mean(eer) * 100.) + '\n' +
-          'EER_thresh ' + str(np.mean(eer_thresh)))
+          'AUC: ' + str(np.mean(auc)))
     print('--------------------------------------------------------------------------------------')
     print()
 
