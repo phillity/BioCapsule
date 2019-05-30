@@ -96,7 +96,7 @@ def verification_train(mode):
         reader = csv.reader(f, delimiter='\t')
         people_list = list(reader)
 
-    lfw_subjects = subject_dict()
+    lfw_subjects = np.load('lfw_subjects.npz')['arr_0'].item()
     feats = np.empty((0, 513))
     eer_thresholds = []
     scaling_factors = []
@@ -139,7 +139,7 @@ def verification_test(mode, eer_thresholds, scaling_factors):
         reader = csv.reader(f, delimiter='\t')
         pairs_list = list(reader)
 
-    lfw_subjects = subject_dict()
+    lfw_subjects = np.load('lfw_subjects.npz')['arr_0'].item()
     dists_same = []
     dists_diff = []
     acc = []
