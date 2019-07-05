@@ -1,12 +1,27 @@
+# vscode settings
 *.vscode
+
+# images
 /images/
 /images/**/
 /images_align/
 /images_align/**/
+
+# features and biocapsules
 /data/
 /data/**/
+
+# pycache
 /__pycache__
 /face_models/__pycache__/
-authentication.script
-identification.script
+
+# job scheduler scripts
+*.script
+
+# comparison experiment scripts
+verification_mace.py
+
+# helper and visualization scripts
 helper.py
+/plot/
+/plot/**/

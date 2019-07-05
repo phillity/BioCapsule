@@ -8,15 +8,12 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn import metrics
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
-import matplotlib.pyplot as pyplot
-import matplotlib
-from latex_format import latexify
 
 
 def subject_dict():
     lfw_subjects = {}
     subject_idx = 0
-    cur_path = os.path.dirname(__file__)
+    cur_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     database_path = os.path.join(cur_path, 'images', 'lfw')
     for subject in os.listdir(database_path):
         subject_path = os.path.join(database_path, subject)
@@ -78,7 +75,7 @@ def verification(mode):
 
 def verification_train(mode):
     # Load data
-    cur_path = os.path.dirname(__file__)
+    cur_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     if mode == 'under':
         data_path = os.path.join(cur_path, 'data', 'lfw.npz')
         data_flip_path = os.path.join(cur_path, 'data', 'lfw_flip.npz')
@@ -92,11 +89,12 @@ def verification_train(mode):
     data_flip = np.load(data_flip_path)['arr_0']
     labels = data[:, -1]
 
-    with open('people.txt', 'r') as f:
+    people_path = os.join(cur_path, 'data', 'people.txt')
+    with open(people_path, 'r') as f:
         reader = csv.reader(f, delimiter='\t')
         people_list = list(reader)
 
-    lfw_subjects = np.load('lfw_subjects.npz')['arr_0'].item()
+    lfw_subjects = np.load(os.path.join(cur_path, 'data', 'lfw_subjects.npz'))['arr_0'].item()
     feats = np.empty((0, 513))
     eer_thresholds = []
     scaling_factors = []
@@ -125,7 +123,7 @@ def verification_test(mode, eer_thresholds, scaling_factors):
     all_prob = np.array([])
 
     # Load data
-    cur_path = os.path.dirname(__file__)
+    cur_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     if mode == 'under':
         data_path = os.path.join(cur_path, 'data', 'lfw.npz')
     elif mode == 'same':
@@ -135,11 +133,12 @@ def verification_test(mode, eer_thresholds, scaling_factors):
     data = np.load(data_path)['arr_0']
     labels = data[:, -1]
 
-    with open('pairs.txt', 'r') as f:
+    people_path = os.join(cur_path, 'data', 'pairs.txt')
+    with open(people_path, 'r') as f:
         reader = csv.reader(f, delimiter='\t')
         pairs_list = list(reader)
 
-    lfw_subjects = np.load('lfw_subjects.npz')['arr_0'].item()
+    lfw_subjects = np.load(os.path.join(cur_path, 'data', 'lfw_subjects.npz'))['arr_0'].item()
     dists_same = []
     dists_diff = []
     acc = []
@@ -212,33 +211,11 @@ under_true, under_prob = verification('under')
 same_true, same_prob = verification('same')
 uni_true, uni_prob = verification('uni')
 
-cur_path = os.path.dirname(__file__)
+# Save results to make ROC curve
+cur_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 np.savez_compressed(os.path.join(cur_path, 'data', 'under_true.npz'), under_true)
 np.savez_compressed(os.path.join(cur_path, 'data', 'under_prob.npz'), under_prob)
 np.savez_compressed(os.path.join(cur_path, 'data', 'same_true.npz'), same_true)
 np.savez_compressed(os.path.join(cur_path, 'data', 'same_prob.npz'), same_prob)
 np.savez_compressed(os.path.join(cur_path, 'data', 'uni_true.npz'), uni_true)
 np.savez_compressed(os.path.join(cur_path, 'data', 'uni_prob.npz'), uni_prob)
-
-'''
-# Generate ROC
-latexify()
-
-plt.plot([0, 1], [0, 1], color='black', lw=2, linestyle='--')
-fpr, tpr, thresholds = metrics.roc_curve(under_true, under_prob, pos_label=1)
-pyplot.plot(fpr, tpr, color='blue', lw=4, label='Underlying System')
-fpr, tpr, thresholds = metrics.roc_curve(same_true, same_prob, pos_label=1)
-pyplot.plot(fpr, tpr, color='green', lw=4, label='Same RS System')
-fpr, tpr, thresholds = metrics.roc_curve(uni_true, uni_prob, pos_label=1)
-pyplot.plot(fpr, tpr, color='purple', lw=4, label='Unique RS System')
-
-pyplot.title('LFW Facial Verification ROC Curve')
-pyplot.xlabel('False Positive Rate')
-pyplot.ylabel('True Positive Rate')
-pyplot.legend(loc='lower right')
-pyplot.xlim([0.0, 1.0])
-pyplot.ylim([0.0, 1.05])
-pyplot.tight_layout()
-# pyplot.show()
-pyplot.savefig('lfw_roc.pdf')
-'''

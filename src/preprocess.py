@@ -169,7 +169,7 @@ def crop(image, out_size=160, margin=44, aligned=False, rot_center=None):
 
 
 def preprocess(database, mode):
-    cur_path = os.path.dirname(__file__)
+    cur_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     database_path = os.path.join(cur_path, 'images', database)
     for subject in os.listdir(database_path):
         subject_path = os.path.join(database_path, subject)

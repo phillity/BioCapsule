@@ -47,7 +47,7 @@ def key_generation(signature):
 
 
 def biocapsule_unique_rs(database):
-    cur_path = os.path.dirname(__file__)
+    cur_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     user_path = os.path.join(cur_path, 'data', database + '.npz')
     user_flip_path = os.path.join(cur_path, 'data', database + '_flip.npz')
     rs_path = os.path.join(cur_path, 'data', 'rs.npz')
@@ -98,7 +98,7 @@ def biocapsule_unique_rs(database):
 
 
 def biocapsule_same_rs(database):
-    cur_path = os.path.dirname(__file__)
+    cur_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     user_path = os.path.join(cur_path, 'data', database + '.npz')
     user_flip_path = os.path.join(cur_path, 'data', database + '_flip.npz')
     rs_path = os.path.join(cur_path, 'data', 'rs.npz')
