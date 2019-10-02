@@ -1,27 +1,13 @@
-# vscode settings
-*.vscode
-
-# images
-/images/
-/images/**/
-/images_align/
-/images_align/**/
-
-# features and biocapsules
-/data/
-/data/**/
-
-# pycache
-/__pycache__
-/face_models/__pycache__/
-
-# job scheduler scripts
-*.script
-
-# comparison experiment scripts
-verification_mace.py
-
-# helper and visualization scripts
-helper.py
-/plot/
-/plot/**/
+src/face_models
+src/face_models/**/
+arcface_data
+arcface_data/**/
+facenet_data
+facenet_data/**/
+images
+images/**/
+.vscode
+vscode/**/
+__pycahce__
+__pycahce__/**/
+*.pyc
