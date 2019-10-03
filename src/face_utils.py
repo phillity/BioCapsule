@@ -5,7 +5,7 @@ from face_models.face_model import ArcFaceModel, FaceNetModel
 
 
 class FaceNetUtils:
-    def __init__(self, gpu="-1"):
+    def __init__(self, gpu=-1):
         self.__model = FaceNetModel(gpu)
 
     def preprocess(self, image):
@@ -20,7 +20,7 @@ class FaceNetUtils:
 
 
 class ArcFaceUtils:
-    def __init__(self, gpu="-1"):
+    def __init__(self, gpu=-1):
         self.__model = ArcFaceModel(gpu)
 
     def preprocess(self, image):

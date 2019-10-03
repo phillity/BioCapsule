@@ -7,7 +7,7 @@ facenet_data/**/
 images
 images/**/
 .vscode
-vscode/**/
-__pycahce__
-__pycahce__/**/
+.vscode/**/
+__pycache__
+__pycache__/**/
 *.pyc
