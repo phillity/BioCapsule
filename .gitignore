@@ -4,8 +4,12 @@ arcface_data
 arcface_data/**/
 facenet_data
 facenet_data/**/
+plot
+plot/**/
 images
 images/**/
+results
+results/**/
 .vscode
 .vscode/**/
 __pycache__

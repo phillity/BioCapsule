@@ -53,6 +53,7 @@ def get_features(dataset, extractor="arcface", gpu="-1", save_features=True):
 
     return features, features_flip
 
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-d", "--dataset", required=True,
