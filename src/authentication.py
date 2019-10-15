@@ -76,7 +76,7 @@ def train_test_mlp(c, X_train, y_train, X_test, y_test, queue):
         y_test_bin[y_test == c] = 1
 
         es = EarlyStopping(monitor="val_acc", mode="max",
-                        verbose=0, patience=100, restore_best_weights=True)
+                           verbose=0, patience=100, restore_best_weights=True)
         mlp.fit(x=X_train, y=y_train_bin, epochs=100000, batch_size=X_train.shape[0],
                 verbose=0, callbacks=[es], validation_data=[X_val, y_val_bin],
                 class_weight=class_weights)

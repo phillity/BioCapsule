@@ -57,7 +57,6 @@ def setup():
         assert(len(people_list[5151:]) == 609)
         people.append(people_list[5151:])
 
-
     pairs = []
     with open(os.path.abspath(os.path.join(path, "..", "images", "pairs.txt")), "r") as pairs_file:
         pairs_list = list(csv.reader(pairs_file, delimiter="\t"))
@@ -86,7 +85,7 @@ def verification(feat_mode, bc_mode):
             path, "..", feat_mode + "_data", "caltech"))
         rs_data = np.load(rs_path + "_feat.npz")["arr_0"]
         data, data_flip = get_biocapsules(data, data_flip, rs_data)
-    
+
     X = data[:, :-1]
     X_flip = data_flip[:, :-1]
     y = data[:, -1]
@@ -117,7 +116,7 @@ def verification(feat_mode, bc_mode):
         sample_weights[sample_weights == 0] = class_weights[0]
         sample_weights[sample_weights == 1] = class_weights[1]
         svms.append(SVC(gamma="auto", probability=True).fit(np.array(dists).reshape(-1, 1), np.array(dists_c), sample_weight=sample_weights))
-    
+
     ACC, FAR, FRR, PRE, REC, F1M, EER = [], [], [], [], [], [], []
     for k, pairs_fold in enumerate(pairs):
         dists = []
@@ -136,7 +135,7 @@ def verification(feat_mode, bc_mode):
                 f_2 = X[y == p_2][int(pair[3]) - 1]
                 dists_c.append(0)
                 dists.append(np.linalg.norm(f_1 - f_2))
-        
+
         y_prob = svms[k].predict_proba(np.array(dists).reshape(-1, 1))
         y_true = dists_c
 
@@ -150,7 +149,7 @@ def verification(feat_mode, bc_mode):
         PRE.append(TP / (TP + FP))
         REC.append(TP / (TP + FN))
         F1M.append(2 * TP / (2 * TP + FP + FN))
-    
+
     out_path = os.path.abspath(os.path.join(
         path, "..", "results", "verification_lfw_" + feat_mode + "_" + bc_mode + ".txt"))
     with open(out_path, "w") as out_file:
