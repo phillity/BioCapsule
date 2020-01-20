@@ -1,78 +1,21 @@
 import os
-import csv
 import numpy as np
 from argparse import ArgumentParser
 from sklearn.svm import SVC
 from sklearn.utils.class_weight import compute_class_weight
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
-from biocapsule import BioCapsuleGenerator
 
 
 np.random.seed(42)
-
-
-def get_biocapsules(data, data_flip, rs_data):
-    user_y = data[:, -1]
-    user_feat = data[:, :-1]
-    user_feat_flip = data[:, :-1]
-
-    rs_y = rs_data[:, -1]
-    rs_feat = rs_data[:, :-1]
-
-    bc = np.zeros((user_feat.shape[0], 513))
-    bc_flip = np.zeros((user_feat_flip.shape[0], 513))
-    bc_gen = BioCapsuleGenerator()
-    for i, y in enumerate(user_y):
-        bc[i] = np.append(bc_gen.biocapsule(user_feat[i, :], rs_feat[0]), y)
-        bc_flip[i] = np.append(bc_gen.biocapsule(
-            user_feat_flip[i, :], rs_feat[0]), y)
-    return bc, bc_flip
-
-
-def setup():
-    path = os.path.dirname(os.path.realpath(__file__))
-
-    people = []
-    with open(os.path.abspath(os.path.join(path, "..", "images", "people.txt")), "r") as people_file:
-        people_list = list(csv.reader(people_file, delimiter="\t"))
-        assert(len(people_list[2:603]) == 601)
-        people.append(people_list[2:603])
-        assert(len(people_list[604:1159]) == 555)
-        people.append(people_list[604:1159])
-        assert(len(people_list[1160:1712]) == 552)
-        people.append(people_list[1160:1712])
-        assert(len(people_list[1713:2273]) == 560)
-        people.append(people_list[1713:2273])
-        assert(len(people_list[2274:2841]) == 567)
-        people.append(people_list[2274:2841])
-        assert(len(people_list[2842:3369]) == 527)
-        people.append(people_list[2842:3369])
-        assert(len(people_list[3370:3967]) == 597)
-        people.append(people_list[3370:3967])
-        assert(len(people_list[3968:4569]) == 601)
-        people.append(people_list[3968:4569])
-        assert(len(people_list[4570:5150]) == 580)
-        people.append(people_list[4570:5150])
-        assert(len(people_list[5151:]) == 609)
-        people.append(people_list[5151:])
-
-    pairs = []
-    with open(os.path.abspath(os.path.join(path, "..", "images", "pairs.txt")), "r") as pairs_file:
-        pairs_list = list(csv.reader(pairs_file, delimiter="\t"))
-        for i in range(10):
-            idx = i * 300 + 1
-            pairs.append(pairs_list[idx: idx + 300])
-            assert(len(pairs[i]) == 300)
-
-    return people, pairs
 
 
 def verification(feat_mode, bc_mode):
     people, pairs = setup()
 
     path = os.path.dirname(os.path.realpath(__file__))
-    dataset_path = os.path.abspath(os.path.join(path, "..", feat_mode + "_data", "lfw"))
+    dataset_path = os.path.abspath(os.path.join(
+        path, "..", feat_mode + "_data", "lfw"))
     data = np.load(dataset_path + "_feat.npz")["arr_0"]
     data_flip = np.load(dataset_path + "_feat_flip.npz")["arr_0"]
 
@@ -115,7 +58,8 @@ def verification(feat_mode, bc_mode):
         sample_weights = np.array(dists_c, dtype=float)
         sample_weights[sample_weights == 0] = class_weights[0]
         sample_weights[sample_weights == 1] = class_weights[1]
-        svms.append(SVC(gamma="auto", probability=True).fit(np.array(dists).reshape(-1, 1), np.array(dists_c), sample_weight=sample_weights))
+        svms.append(SVC(gamma="auto", probability=True).fit(np.array(
+            dists).reshape(-1, 1), np.array(dists_c), sample_weight=sample_weights))
 
     ACC, FAR, FRR, PRE, REC, F1M, EER = [], [], [], [], [], [], []
     for k, pairs_fold in enumerate(pairs):

@@ -9,52 +9,12 @@ from sklearn.utils.class_weight import compute_class_weight
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
 import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, Dropout, BatchNormalization, Activation
 from tensorflow.keras.callbacks import EarlyStopping
 from biocapsule import BioCapsuleGenerator
 
 
-tf.compat.v1.set_random_seed(42)
 np.random.seed(42)
-
-
-def drawProgressBar(text, percent, barLen=20):
-    print(text + " -- [{:<{}}] {:.0f}%".format("=" * int(barLen * percent), barLen, percent * 100), end="\r")
-
-
-def get_mlp(input_shape):
-    inputs = Input(shape=(input_shape,))
-    # (1) FC - BN - ReLU - BN
-    fc1 = Dense(256)(inputs)
-    bn1 = BatchNormalization()(fc1)
-    ru1 = Activation("relu")(bn1)
-    do1 = Dropout(0.2)(ru1)
-    # (2) FC - BN - ReLU - BN
-    fc2 = Dense(128)(do1)
-    bn2 = BatchNormalization()(fc2)
-    ru2 = Activation("relu")(bn2)
-    do2 = Dropout(0.2)(ru2)
-    # (3) FC - BN - ReLU - BN
-    fc3 = Dense(64)(do2)
-    bn3 = BatchNormalization()(fc3)
-    ru3 = Activation("relu")(bn3)
-    do3 = Dropout(0.2)(ru3)
-    # (4) FC - BN - Sigmoid
-    fc4 = Dense(1)(do3)
-    bn4 = BatchNormalization()(fc4)
-    predictions = Activation("sigmoid")(bn4)
-
-    model = Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer="adam",
-                  loss="binary_crossentropy",
-                  metrics=["acc"])
-    return model
-
-
-def split_list(l, n):
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
+tf.compat.v1.set_random_seed(42)
 
 
 def train_test_mlp(c, X_train, y_train, X_test, y_test, queue):
@@ -83,24 +43,6 @@ def train_test_mlp(c, X_train, y_train, X_test, y_test, queue):
 
         y_prob = mlp.predict(X_test)[:, 0]
         queue.put((c, y_test_bin, y_prob))
-
-
-def get_biocapsules(data, data_flip, rs_data):
-    user_y = data[:, -1]
-    user_feat = data[:, :-1]
-    user_feat_flip = data[:, :-1]
-
-    rs_y = rs_data[:, -1]
-    rs_feat = rs_data[:, :-1]
-
-    bc = np.zeros((user_feat.shape[0], 513))
-    bc_flip = np.zeros((user_feat_flip.shape[0], 513))
-    bc_gen = BioCapsuleGenerator()
-    for i, y in enumerate(user_y):
-        bc[i] = np.append(bc_gen.biocapsule(user_feat[i, :], rs_feat[0]), y)
-        bc_flip[i] = np.append(bc_gen.biocapsule(
-            user_feat_flip[i, :], rs_feat[0]), y)
-    return bc, bc_flip
 
 
 def authentication(dataset, feat_mode, bc_mode, thread_cnt):
@@ -187,4 +129,5 @@ if __name__ == "__main__":
                         help="thread count to use in authentication")
     args = vars(parser.parse_args())
 
-    authentication(args["dataset"], args["feat_mode"], args["bc_mode"], args["thread"])
+    authentication(args["dataset"], args["feat_mode"],
+                   args["bc_mode"], args["thread"])

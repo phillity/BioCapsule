@@ -120,11 +120,13 @@ def generate_bbox(map, reg, scale, threshold):
     reg = np.array([dx1, dy1, dx2, dy2])
     score = map[t_index[0], t_index[1]]
     boundingbox = np.vstack([np.round((stride * t_index[1] + 1) / scale),
-                            np.round((stride * t_index[0] + 1) / scale),
-                            np.round((stride * t_index[1] + 1 + cellsize) / scale),
-                            np.round((stride * t_index[0] + 1 + cellsize) / scale),
-                            score,
-                            reg])
+                             np.round((stride * t_index[0] + 1) / scale),
+                             np.round(
+                                 (stride * t_index[1] + 1 + cellsize) / scale),
+                             np.round(
+                                 (stride * t_index[0] + 1 + cellsize) / scale),
+                             score,
+                             reg])
 
     return boundingbox.T
 

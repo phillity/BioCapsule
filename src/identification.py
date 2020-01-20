@@ -5,43 +5,12 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.metrics import confusion_matrix
 from sklearn.utils.class_weight import compute_class_weight
 import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, Dropout, BatchNormalization, Activation
 from tensorflow.keras.callbacks import EarlyStopping
 from biocapsule import BioCapsuleGenerator
 
 
-tf.compat.v1.set_random_seed(42)
 np.random.seed(42)
-
-
-def get_mlp(input_shape, output_shape):
-    inputs = Input(shape=(input_shape,))
-    # (1) FC - BN - ReLU - BN
-    fc1 = Dense(256)(inputs)
-    bn1 = BatchNormalization()(fc1)
-    ru1 = Activation("relu")(bn1)
-    do1 = Dropout(0.2)(ru1)
-    # (2) FC - BN - ReLU - BN
-    fc2 = Dense(128)(do1)
-    bn2 = BatchNormalization()(fc2)
-    ru2 = Activation("relu")(bn2)
-    do2 = Dropout(0.2)(ru2)
-    # (3) FC - BN - ReLU - BN
-    fc3 = Dense(64)(do2)
-    bn3 = BatchNormalization()(fc3)
-    ru3 = Activation("relu")(bn3)
-    do3 = Dropout(0.2)(ru3)
-    # (4) FC - BN - SoftMax
-    fc4 = Dense(output_shape)(do3)
-    bn4 = BatchNormalization()(fc4)
-    predictions = Activation("softmax")(bn4)
-
-    model = Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer="adam",
-                  loss="categorical_crossentropy",
-                  metrics=["acc"])
-    return model
+tf.compat.v1.set_random_seed(42)
 
 
 def train_mlp(X_train, y_train, mlp):
@@ -58,26 +27,10 @@ def train_mlp(X_train, y_train, mlp):
     return mlp
 
 
-def get_biocapsules(data, data_flip, rs_data):
-    user_y = data[:, -1]
-    user_feat = data[:, :-1]
-    user_feat_flip = data[:, :-1]
-
-    rs_y = rs_data[:, -1]
-    rs_feat = rs_data[:, :-1]
-
-    bc = np.zeros((user_feat.shape[0], 513))
-    bc_flip = np.zeros((user_feat_flip.shape[0], 513))
-    bc_gen = BioCapsuleGenerator()
-    for i, y in enumerate(user_y):
-        bc[i] = np.append(bc_gen.biocapsule(user_feat[i, :], rs_feat[0]), y)
-        bc_flip[i] = np.append(bc_gen.biocapsule(user_feat_flip[i, :], rs_feat[0]), y)
-    return bc, bc_flip
-
-
 def identification(dataset, feat_mode, bc_mode):
     path = os.path.dirname(os.path.realpath(__file__))
-    dataset_path = os.path.abspath(os.path.join(path, "..", feat_mode + "_data", dataset))
+    dataset_path = os.path.abspath(os.path.join(
+        path, "..", feat_mode + "_data", dataset))
     data = np.load(dataset_path + "_feat.npz")["arr_0"]
     data_flip = np.load(dataset_path + "_feat_flip.npz")["arr_0"]
 

@@ -68,7 +68,8 @@ def center_loss(features, label, alfa, nrof_classes):
        (http://ydwen.github.io/papers/WenECCV16.pdf)
     """
     nrof_features = features.get_shape()[1]
-    centers = tf.get_variable('centers', [nrof_classes, nrof_features], dtype=tf.float32, initializer=tf.constant_initializer(0), trainable=False)
+    centers = tf.get_variable('centers', [nrof_classes, nrof_features],
+                              dtype=tf.float32, initializer=tf.constant_initializer(0), trainable=False)
     label = tf.reshape(label, [-1])
     centers_batch = tf.gather(centers, label)
     diff = (1 - alfa) * (centers_batch - features)
@@ -98,6 +99,7 @@ def random_rotate_image(image):
     angle = np.random.uniform(low=-10.0, high=10.0)
     return misc.imrotate(image, angle, 'bicubic')
 
+
 # 1: Random rotate 2: Random crop  4: Random flip  8:  Fixed image standardization  16: Flip
 RANDOM_ROTATE = 1
 RANDOM_CROP = 2
@@ -115,7 +117,8 @@ def create_input_pipeline(input_queue, image_size, nrof_preprocess_threads, batc
             file_contents = tf.read_file(filename)
             image = tf.image.decode_image(file_contents, 3)
             image = tf.cond(get_control_flag(control[0], RANDOM_ROTATE),
-                            lambda: tf.py_func(random_rotate_image, [image], tf.uint8),
+                            lambda: tf.py_func(random_rotate_image, [
+                                               image], tf.uint8),
                             lambda: tf.identity(image))
             image = tf.cond(get_control_flag(control[0], RANDOM_CROP),
                             lambda: tf.random_crop(image, image_size + (3,)),
@@ -124,7 +127,8 @@ def create_input_pipeline(input_queue, image_size, nrof_preprocess_threads, batc
                             lambda: tf.image.random_flip_left_right(image),
                             lambda: tf.identity(image))
             image = tf.cond(get_control_flag(control[0], FIXED_STANDARDIZATION),
-                            lambda: (tf.cast(image, tf.float32) - 127.5) / 128.0,
+                            lambda: (tf.cast(image, tf.float32) -
+                                     127.5) / 128.0,
                             lambda: tf.image.per_image_standardization(image))
             image = tf.cond(get_control_flag(control[0], FLIP),
                             lambda: tf.image.flip_left_right(image),
@@ -183,13 +187,17 @@ def train(total_loss, global_step, optimizer, learning_rate, moving_average_deca
         if optimizer == 'ADAGRAD':
             opt = tf.train.AdagradOptimizer(learning_rate)
         elif optimizer == 'ADADELTA':
-            opt = tf.train.AdadeltaOptimizer(learning_rate, rho=0.9, epsilon=1e-6)
+            opt = tf.train.AdadeltaOptimizer(
+                learning_rate, rho=0.9, epsilon=1e-6)
         elif optimizer == 'ADAM':
-            opt = tf.train.AdamOptimizer(learning_rate, beta1=0.9, beta2=0.999, epsilon=0.1)
+            opt = tf.train.AdamOptimizer(
+                learning_rate, beta1=0.9, beta2=0.999, epsilon=0.1)
         elif optimizer == 'RMSPROP':
-            opt = tf.train.RMSPropOptimizer(learning_rate, decay=0.9, momentum=0.9, epsilon=1.0)
+            opt = tf.train.RMSPropOptimizer(
+                learning_rate, decay=0.9, momentum=0.9, epsilon=1.0)
         elif optimizer == 'MOM':
-            opt = tf.train.MomentumOptimizer(learning_rate, 0.9, use_nesterov=True)
+            opt = tf.train.MomentumOptimizer(
+                learning_rate, 0.9, use_nesterov=True)
         else:
             raise ValueError('Invalid optimization algorithm')
 
@@ -234,10 +242,12 @@ def crop(image, random_crop, image_size):
         sz2 = int(image_size // 2)
         if random_crop:
             diff = sz1 - sz2
-            (h, v) = (np.random.randint(-diff, diff + 1), np.random.randint(-diff, diff + 1))
+            (h, v) = (np.random.randint(-diff, diff + 1),
+                      np.random.randint(-diff, diff + 1))
         else:
             (h, v) = (0, 0)
-        image = image[(sz1 - sz2 + v):(sz1 + sz2 + v), (sz1 - sz2 + h):(sz1 + sz2 + h), :]
+        image = image[(sz1 - sz2 + v):(sz1 + sz2 + v),
+                      (sz1 - sz2 + h):(sz1 + sz2 + h), :]
     return image
 
 
@@ -323,6 +333,7 @@ def get_learning_rate_from_file(filename, epoch):
 
 class ImageClass():
     "Stores the paths to images for a given class"
+
     def __init__(self, name, image_paths):
         self.name = name
         self.image_paths = image_paths
@@ -337,7 +348,8 @@ class ImageClass():
 def get_dataset(path, has_class_directories=True):
     dataset = []
     path_exp = os.path.expanduser(path)
-    classes = [path for path in os.listdir(path_exp) if os.path.isdir(os.path.join(path_exp, path))]
+    classes = [path for path in os.listdir(
+        path_exp) if os.path.isdir(os.path.join(path_exp, path))]
     classes.sort()
     nrof_classes = len(classes)
     for i in range(nrof_classes):
@@ -389,8 +401,8 @@ def load_model(model, input_map=None):
     model_exp = os.path.expanduser(model)
     if (os.path.isfile(model_exp)):
         print('Model filename: %s' % model_exp)
-        with gfile.FastGFile(model_exp, 'rb') as f:
-            graph_def = tf.GraphDef()
+        with tf.io.gfile.GFile(model_exp, 'rb') as f:
+            graph_def = tf.compat.v1.GraphDef()
             graph_def.ParseFromString(f.read())
             tf.import_graph_def(graph_def, input_map=input_map, name='')
     else:
@@ -400,17 +412,21 @@ def load_model(model, input_map=None):
         print('Metagraph file: %s' % meta_file)
         print('Checkpoint file: %s' % ckpt_file)
 
-        saver = tf.train.import_meta_graph(os.path.join(model_exp, meta_file), input_map=input_map)
-        saver.restore(tf.get_default_session(), os.path.join(model_exp, ckpt_file))
+        saver = tf.train.import_meta_graph(os.path.join(
+            model_exp, meta_file), input_map=input_map)
+        saver.restore(tf.get_default_session(),
+                      os.path.join(model_exp, ckpt_file))
 
 
 def get_model_filenames(model_dir):
     files = os.listdir(model_dir)
     meta_files = [s for s in files if s.endswith('.meta')]
     if len(meta_files) == 0:
-        raise ValueError('No meta file found in the model directory (%s)' % model_dir)
+        raise ValueError(
+            'No meta file found in the model directory (%s)' % model_dir)
     elif len(meta_files) > 1:
-        raise ValueError('There should not be more than one meta file in the model directory (%s)' % model_dir)
+        raise ValueError(
+            'There should not be more than one meta file in the model directory (%s)' % model_dir)
     meta_file = meta_files[0]
     ckpt = tf.train.get_checkpoint_state(model_dir)
     if ckpt and ckpt.model_checkpoint_path:
@@ -437,7 +453,8 @@ def distance(embeddings1, embeddings2, distance_metric=0):
     elif distance_metric == 1:
         # Distance based on cosine similarity
         dot = np.sum(np.multiply(embeddings1, embeddings2), axis=1)
-        norm = np.linalg.norm(embeddings1, axis=1) * np.linalg.norm(embeddings2, axis=1)
+        norm = np.linalg.norm(embeddings1, axis=1) * \
+            np.linalg.norm(embeddings2, axis=1)
         similarity = dot / norm
         dist = np.arccos(similarity) / math.pi
     else:
@@ -461,19 +478,24 @@ def calculate_roc(thresholds, embeddings1, embeddings2, actual_issame, nrof_fold
 
     for fold_idx, (train_set, test_set) in enumerate(k_fold.split(indices)):
         if subtract_mean:
-            mean = np.mean(np.concatenate([embeddings1[train_set], embeddings2[train_set]]), axis=0)
+            mean = np.mean(np.concatenate(
+                [embeddings1[train_set], embeddings2[train_set]]), axis=0)
         else:
             mean = 0.0
-        dist = distance(embeddings1 - mean, embeddings2 - mean, distance_metric)
+        dist = distance(embeddings1 - mean, embeddings2 -
+                        mean, distance_metric)
 
         # Find the best threshold for the fold
         acc_train = np.zeros((nrof_thresholds))
         for threshold_idx, threshold in enumerate(thresholds):
-            _, _, acc_train[threshold_idx] = calculate_accuracy(threshold, dist[train_set], actual_issame[train_set])
+            _, _, acc_train[threshold_idx] = calculate_accuracy(
+                threshold, dist[train_set], actual_issame[train_set])
         best_threshold_index = np.argmax(acc_train)
         for threshold_idx, threshold in enumerate(thresholds):
-            tprs[fold_idx, threshold_idx], fprs[fold_idx, threshold_idx], _ = calculate_accuracy(threshold, dist[test_set], actual_issame[test_set])
-        _, _, accuracy[fold_idx] = calculate_accuracy(thresholds[best_threshold_index], dist[test_set], actual_issame[test_set])
+            tprs[fold_idx, threshold_idx], fprs[fold_idx, threshold_idx], _ = calculate_accuracy(
+                threshold, dist[test_set], actual_issame[test_set])
+        _, _, accuracy[fold_idx] = calculate_accuracy(
+            thresholds[best_threshold_index], dist[test_set], actual_issame[test_set])
 
         tpr = np.mean(tprs, 0)
         fpr = np.mean(fprs, 0)
@@ -484,7 +506,8 @@ def calculate_accuracy(threshold, dist, actual_issame):
     predict_issame = np.less(dist, threshold)
     tp = np.sum(np.logical_and(predict_issame, actual_issame))
     fp = np.sum(np.logical_and(predict_issame, np.logical_not(actual_issame)))
-    tn = np.sum(np.logical_and(np.logical_not(predict_issame), np.logical_not(actual_issame)))
+    tn = np.sum(np.logical_and(np.logical_not(
+        predict_issame), np.logical_not(actual_issame)))
     fn = np.sum(np.logical_and(np.logical_not(predict_issame), actual_issame))
 
     tpr = 0 if (tp + fn == 0) else float(tp) / float(tp + fn)
@@ -507,22 +530,26 @@ def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_targe
 
     for fold_idx, (train_set, test_set) in enumerate(k_fold.split(indices)):
         if subtract_mean:
-            mean = np.mean(np.concatenate([embeddings1[train_set], embeddings2[train_set]]), axis=0)
+            mean = np.mean(np.concatenate(
+                [embeddings1[train_set], embeddings2[train_set]]), axis=0)
         else:
             mean = 0.0
-        dist = distance(embeddings1 - mean, embeddings2 - mean, distance_metric)
+        dist = distance(embeddings1 - mean, embeddings2 -
+                        mean, distance_metric)
 
         # Find the threshold that gives FAR = far_target
         far_train = np.zeros(nrof_thresholds)
         for threshold_idx, threshold in enumerate(thresholds):
-            _, far_train[threshold_idx] = calculate_val_far(threshold, dist[train_set], actual_issame[train_set])
+            _, far_train[threshold_idx] = calculate_val_far(
+                threshold, dist[train_set], actual_issame[train_set])
         if np.max(far_train) >= far_target:
             f = interpolate.interp1d(far_train, thresholds, kind='slinear')
             threshold = f(far_target)
         else:
             threshold = 0.0
 
-        val[fold_idx], far[fold_idx] = calculate_val_far(threshold, dist[test_set], actual_issame[test_set])
+        val[fold_idx], far[fold_idx] = calculate_val_far(
+            threshold, dist[test_set], actual_issame[test_set])
 
     val_mean = np.mean(val)
     far_mean = np.mean(far)
@@ -533,7 +560,8 @@ def calculate_val(thresholds, embeddings1, embeddings2, actual_issame, far_targe
 def calculate_val_far(threshold, dist, actual_issame):
     predict_issame = np.less(dist, threshold)
     true_accept = np.sum(np.logical_and(predict_issame, actual_issame))
-    false_accept = np.sum(np.logical_and(predict_issame, np.logical_not(actual_issame)))
+    false_accept = np.sum(np.logical_and(
+        predict_issame, np.logical_not(actual_issame)))
     n_same = np.sum(actual_issame)
     n_diff = np.sum(np.logical_not(actual_issame))
     val = float(true_accept) / float(n_same)
@@ -564,7 +592,8 @@ def store_revision_info(src_path, output_dir, arg_string):
     rev_info_filename = os.path.join(output_dir, 'revision_info.txt')
     with open(rev_info_filename, "w") as text_file:
         text_file.write('arguments: %s\n--------------------\n' % arg_string)
-        text_file.write('tensorflow version: %s\n--------------------\n' % tf.__version__)  # @UndefinedVariable
+        text_file.write('tensorflow version: %s\n--------------------\n' %
+                        tf.__version__)  # @UndefinedVariable
         text_file.write('git hash: %s\n--------------------\n' % git_hash)
         text_file.write('%s' % git_diff)
 
@@ -580,7 +609,8 @@ def put_images_on_grid(images, shape=(16, 8)):
     nrof_images = images.shape[0]
     img_size = images.shape[1]
     bw = 3
-    img = np.zeros((shape[1] * (img_size + bw) + bw, shape[0] * (img_size + bw) + bw, 3), np.float32)
+    img = np.zeros((shape[1] * (img_size + bw) + bw,
+                    shape[0] * (img_size + bw) + bw, 3), np.float32)
     for i in range(shape[1]):
         x_start = i * (img_size + bw) + bw
         for j in range(shape[0]):
@@ -588,7 +618,8 @@ def put_images_on_grid(images, shape=(16, 8)):
             if img_index >= nrof_images:
                 break
             y_start = j * (img_size + bw) + bw
-            img[x_start:x_start + img_size, y_start:y_start + img_size, :] = images[img_index, :, :, :]
+            img[x_start:x_start + img_size, y_start:y_start +
+                img_size, :] = images[img_index, :, :, :]
         if img_index >= nrof_images:
             break
     return img

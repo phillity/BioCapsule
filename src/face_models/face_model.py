@@ -18,16 +18,16 @@ __all__ = ["ArcFaceModel", "FaceNetModel"]
 
 
 def rect_point_dist(rect, center):
-        rect_center = (rect[0] + rect[1]) / 2
-        y = rect_center[0]
-        x = rect_center[1]
-        height = rect[1, 0] - rect[0, 0]
-        width = rect[1, 1] - rect[0, 1]
-        py = center[0]
-        px = center[1]
-        dx = max(np.abs(px - x) - width / 2, 0)
-        dy = max(np.abs(py - y) - height / 2, 0)
-        return dx * dx + dy * dy
+    rect_center = (rect[0] + rect[1]) / 2
+    y = rect_center[0]
+    x = rect_center[1]
+    height = rect[1, 0] - rect[0, 0]
+    width = rect[1, 1] - rect[0, 1]
+    py = center[0]
+    px = center[1]
+    dx = max(np.abs(px - x) - width / 2, 0)
+    dy = max(np.abs(py - y) - height / 2, 0)
+    return dx * dx + dy * dy
 
 
 def get_center_face(bbox, points, img_center):
@@ -63,18 +63,20 @@ class FaceNetModel:
         self.__phase_train_placeholder = None
         self.__get_model()
         self.__detector = MtcnnDetector(model_folder=os.path.join(
-            os.path.dirname(__file__), "mtcnn-model"), ctx=ctx, accurate_landmark=True)
+            os.path.dirname(__file__), "model-mtcnn"), ctx=ctx, accurate_landmark=True)
 
     def __get_model(self):
-        self.__sess = tf.Session()
+        self.__sess = tf.compat.v1.Session()
         model_path = os.path.join(os.path.dirname(
             os.path.realpath(__file__)), "model-ir-v1", "20180402-114759.pb")
         print("loading", model_path)
         facenet.load_model(model_path)
-        self.__images_placeholder = tf.get_default_graph().get_tensor_by_name("input:0")
-        self.__embeddings = tf.get_default_graph().get_tensor_by_name("embeddings:0")
-        self.__phase_train_placeholder = tf.get_default_graph(
-        ).get_tensor_by_name("phase_train:0")
+        self.__images_placeholder = tf.compat.v1.get_default_graph().get_tensor_by_name(
+            "input:0")
+        self.__embeddings = tf.compat.v1.get_default_graph().get_tensor_by_name(
+            "embeddings:0")
+        self.__phase_train_placeholder = tf.compat.v1.get_default_graph().get_tensor_by_name(
+            "phase_train:0")
 
     def get_input(self, face_img):
         ret = self.__detector.detect_face(face_img, det_type=0)
@@ -94,9 +96,9 @@ class FaceNetModel:
         return aligned
 
     def get_feature(self, aligned):
-        image = prewhiten(aligned)
-        input_blob = np.zeros((1, 160, 160, 3))
-        input_blob[0, :, :, :] = image
+        input_blob = prewhiten(aligned)
+        if len(input_blob.shape) == 3:
+            input_blob = np.expand_dims(input_blob, axis=0)
         feed_dict = {self.__images_placeholder: input_blob,
                      self.__phase_train_placeholder: False}
         embedding = self.__sess.run(
@@ -112,7 +114,7 @@ class ArcFaceModel:
             ctx = mx.gpu(gpu)
         self.__model = self.__get_model(ctx)
         self.__detector = MtcnnDetector(model_folder=os.path.join(
-            os.path.dirname(__file__), "mtcnn-model"), ctx=ctx, accurate_landmark=True)
+            os.path.dirname(__file__), "model-mtcnn"), ctx=ctx, accurate_landmark=True)
 
     def __get_model(self, ctx):
         model_path = os.path.join(os.path.dirname(
