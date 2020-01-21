@@ -118,7 +118,7 @@ class ArcFaceModel:
 
     def __get_model(self, ctx):
         model_path = os.path.join(os.path.dirname(
-            os.path.realpath(__file__)), "model-r100-ii" + "\\")
+            os.path.realpath(__file__)), "model-r100-ii", "model")
         print("loading", model_path, 0)
         sym, arg_params, aux_params = mx.model.load_checkpoint(model_path, 0)
         all_layers = sym.get_internals()
