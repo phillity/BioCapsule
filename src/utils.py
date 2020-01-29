@@ -1,15 +1,11 @@
 import os
 import csv
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Dense, Dropout, BatchNormalization, Activation
 
 np.random.seed(42)
-tf.compat.v1.set_random_seed(42)
 
 
-def draw_progress(text, percent, barLen=20):
+def progress_bar(text, percent, barLen=20):
     print(text + " -- [{:<{}}] {:.0f}%".format("=" *
                                                int(barLen * percent), barLen, percent * 100), end="\r")
     if percent == 1:
@@ -28,38 +24,6 @@ def walk(path):
     for d in dirs:
         files += walk(os.path.join(path, d))
     return files
-
-
-def get_mlp(input_shape, output_shape):
-    inputs = Input(shape=(input_shape,))
-    # (1) FC - ReLU - BN - Dropout
-    fc1 = Dense(256)(inputs)
-    ru1 = Activation("relu")(fc1)
-    bn1 = BatchNormalization()(ru1)
-    do1 = Dropout(0.2)(bn1)
-    # (2) FC - ReLU - BN - Dropout
-    fc2 = Dense(128)(do1)
-    ru2 = Activation("relu")(fc2)
-    bn2 = BatchNormalization()(ru2)
-    do2 = Dropout(0.2)(bn2)
-    # (3) FC - ReLU - BN - Dropout
-    fc3 = Dense(64)(do2)
-    ru3 = Activation("relu")(do2)
-    bn3 = BatchNormalization()(ru3)
-    do3 = Dropout(0.2)(bn3)
-    # (4) FC - Sigmoid/SoftMax
-    fc4 = Dense(output_shape)(do3)
-    if output_shape == 1:
-        predictions = Activation("sigmoid")(fc4)
-        loss = "binary_crossentropy"
-    else:
-        predictions = Activation("softmax")(fc4)
-        loss = "categorical_crossentropy"
-    model = Model(inputs=inputs, outputs=predictions)
-    model.compile(optimizer="adam",
-                  loss=loss,
-                  metrics=["acc"])
-    return model
 
 
 def get_lfw(mode):

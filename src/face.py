@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 from argparse import ArgumentParser
-from utils import walk, draw_progress
+from utils import walk, progress_bar
 from face_models.face_model import ArcFaceModel, FaceNetModel
 
 
@@ -55,7 +55,7 @@ def extract_dataset(dataset, extractor="arcface", gpu=-1):
 
     image_cnt = 0
     for subject_id, subject in enumerate(os.listdir(dataset_path)):
-        draw_progress(dataset + " " + extractor,
+        progress_bar(dataset + " " + extractor,
                       float(image_cnt + 1) / file_cnt)
 
         for image in os.listdir(os.path.join(dataset_path, subject)):

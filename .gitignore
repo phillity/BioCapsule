@@ -2,7 +2,7 @@ __pycache__
 
 .vscode
 
-vggface2_job.py
+*.bat
 
 *.npz
 
@@ -16,3 +16,5 @@ images/people.txt
 images/CyberextruderUltimate
 images/essex
 images/vggface2_*
+
+vggface2_job.py
