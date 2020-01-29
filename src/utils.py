@@ -1,6 +1,7 @@
 import os
 import csv
 import numpy as np
+from biocapsule import BioCapsuleGenerator
 
 np.random.seed(42)
 
@@ -24,6 +25,26 @@ def walk(path):
     for d in dirs:
         files += walk(os.path.join(path, d))
     return files
+
+
+def bc_lfw(mode, rs_cnt):
+    bc_gen = BioCapsuleGenerator()
+    lfw = get_lfw(mode)
+    X_rs = np.load(os.path.join(os.path.abspath(""), "data",
+                                "rs_{}_feat.npz".format(mode)))["arr_0"]
+    for fold in range(10):
+        for i in range(lfw["train_{}".format(fold)].shape[0]):
+            for j in range(rs_cnt):
+                lfw["train_{}".format(fold)][i, :-1] = bc_gen.biocapsule(
+                    lfw["train_{}".format(fold)][i, :-1], X_rs[j, :-1])
+
+        for i in range(lfw["test_{}".format(fold)].shape[0]):
+            for j in range(rs_cnt):
+                lfw["test_{}".format(fold)][i, 0, :-1] = bc_gen.biocapsule(
+                    lfw["test_{}".format(fold)][i, 0, :-1], X_rs[j, :-1])
+                lfw["test_{}".format(fold)][i, 1, :-1] = bc_gen.biocapsule(
+                    lfw["test_{}".format(fold)][i, 1, :-1], X_rs[j, :-1])
+    return lfw
 
 
 def get_lfw(mode):

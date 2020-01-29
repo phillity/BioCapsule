@@ -6,14 +6,14 @@ from sklearn.metrics import auc, roc_curve, confusion_matrix
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.utils.class_weight import compute_sample_weight
 from argparse import ArgumentParser
-from utils import get_lfw
+from utils import bc_lfw
 
 
 np.random.seed(42)
 
 
-def verification(method):
-    lfw = get_lfw(method)
+def verification(method, rs_cnt):
+    lfw = bc_lfw(method, rs_cnt)
 
     acc, fpr, frr, eer, aucs = [np.zeros((10,)) for _ in range(5)]
     y_true, y_prob = [np.zeros((10, 600)) for _ in range(2)]
@@ -73,12 +73,14 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-m", "--method", required=True, choices=["arcface", "facenet"],
                         help="method to use in feature extraction")
+    parser.add_argument("-rs", "--rs_cnt", default=0, type=int, choices=range(0, 11),
+                        help="number of rs in biocapsule generation")
     args = vars(parser.parse_args())
 
-    y_true, y_prob, acc = verification(args["method"])
+    y_true, y_prob, acc = verification(args["method"], args["rs_cnt"])
     np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "results", args["method"] + "_lfw_true.npz"), y_true)
+        ""), "results", "{}_{}_lfw_true.npz".format(args["method"], args["rs_cnt"])), y_true)
     np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "results", args["method"] + "_lfw_prob.npz"), y_prob)
+        ""), "results", "{}_{}_lfw_prob.npz".format(args["method"], args["rs_cnt"])), y_prob)
     np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "results", args["method"] + "_lfw_acc.npz"), acc)
+        ""), "results", "{}_{}_lfw_acc.npz".format(args["method"], args["rs_cnt"])), acc)
