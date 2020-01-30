@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
@@ -13,6 +14,9 @@ np.random.seed(42)
 
 
 def verification(method, rs_cnt):
+    out_file = open(os.path.join(os.path.abspath(""), "results",
+                                 "{}_{}_lfw.txt".format(method, rs_cnt)), "w")
+
     lfw = bc_lfw(method, rs_cnt)
 
     acc, fpr, frr, eer, aucs = [np.zeros((10,)) for _ in range(5)]
@@ -50,21 +54,23 @@ def verification(method, rs_cnt):
         eer[fold] = brentq(lambda x: 1. - x - interp1d(fprf, tprf)(x), 0., 1.)
         aucs[fold] = auc(fprf, tprf)
 
-        print("Fold {}:".format(fold))
-        print("ACC -- {:.6f}".format(acc[fold]))
-        print("FPR -- {:.6f}".format(fpr[fold]))
-        print("FRR -- {:.6f}".format(frr[fold]))
-        print("EER -- {:.6f}".format(eer[fold]))
-        print("AUC -- {:.6f}".format(aucs[fold]))
-        print("FP -- {}, FN -- {}".format(fp, fn))
+        out_file.write("Fold {}:\n".format(fold))
+        out_file.write("ACC -- {:.6f}\n".format(acc[fold]))
+        out_file.write("FPR -- {:.6f}\n".format(fpr[fold]))
+        out_file.write("FRR -- {:.6f}\n".format(frr[fold]))
+        out_file.write("EER -- {:.6f}\n".format(eer[fold]))
+        out_file.write("AUC -- {:.6f}\n".format(aucs[fold]))
+        out_file.write("FP -- {}, FN -- {}\n".format(fp, fn))
+        out_file.flush()
 
     def p(metric): return (np.average(metric), np.std(metric))
-    print("Overall:")
-    print("ACC -- {:.6f} (+/-{:.6f})".format(p(acc)))
-    print("FPR -- {:.6f} (+/-{:.6f})".format(p(fpr)))
-    print("FRR -- {:.6f} (+/-{:.6f})".format(p(frr)))
-    print("EER -- {:.6f} (+/-{:.6f})".format(p(err)))
-    print("AUC -- {:.6f} (+/-{:.6f})".format(p(aucs)))
+    out_file.write("Overall:\n")
+    out_file.write("ACC -- {:.6f} (+/-{:.6f})\n".format(p(acc)))
+    out_file.write("FPR -- {:.6f} (+/-{:.6f})\n".format(p(fpr)))
+    out_file.write("FRR -- {:.6f} (+/-{:.6f})\n".format(p(frr)))
+    out_file.write("EER -- {:.6f} (+/-{:.6f})\n".format(p(err)))
+    out_file.write("AUC -- {:.6f} (+/-{:.6f})\n".format(p(aucs)))
+    out_file.close()
 
     return y_true, y_prob, acc
 

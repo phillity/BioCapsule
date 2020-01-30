@@ -3,13 +3,14 @@ __pycache__
 .vscode
 
 *.bat
-
 *.npz
+*.txt
 
 src/face_models/model-ir-v1
 src/face_models/model-mtcnn
 src/face_models/model-r100-ii
 
+images/rs
 images/lfw
 images/pairs.txt
 images/people.txt
@@ -18,3 +19,5 @@ images/essex
 images/vggface2_*
 
 vggface2_job.py
+verification_job.py
+verification_job.sh
