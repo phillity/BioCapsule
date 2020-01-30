@@ -54,9 +54,12 @@ def extract_dataset(dataset, extractor="arcface", gpu=-1):
     features_flip = np.zeros((file_cnt, 513))
 
     image_cnt = 0
-    for subject_id, subject in enumerate(os.listdir(dataset_path)):
+    subjects = os.listdir(dataset_path)
+    subjects = [x for _, x in sorted(
+        zip([subject.lower() for subject in subjects], subjects))]
+    for subject_id, subject in enumerate(subjects):
         progress_bar(dataset + " " + extractor,
-                      float(image_cnt + 1) / file_cnt)
+                     float(image_cnt + 1) / file_cnt)
 
         for image in os.listdir(os.path.join(dataset_path, subject)):
             image = cv2.imread(os.path.join(dataset_path, subject, image))
@@ -120,6 +123,6 @@ if __name__ == "__main__":
         args["dataset"], args["method"], args["gpu"])
 
     np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "data", args["dataset"] + "_" + args["method"] + "_feat.npz"), features)
+        ""), "data", "{}_{}_feat.npz".format(args["dataset"], args["method"])), features)
     np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "data", args["dataset"] + "_" + args["method"] + "_feat_flip.npz"), features_flip)
+        ""), "data", "{}_{}_feat_flip.npz".format(args["dataset"], args["method"])), features_flip)
