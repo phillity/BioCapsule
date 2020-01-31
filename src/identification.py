@@ -1,108 +1,56 @@
 import os
+import h5py
 import numpy as np
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from imblearn.metrics import sensitivity_score, specificity_score
 from argparse import ArgumentParser
-from sklearn.model_selection import StratifiedKFold, train_test_split
-from sklearn.metrics import confusion_matrix
-from sklearn.utils.class_weight import compute_class_weight
-import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping
-from biocapsule import BioCapsuleGenerator
+from model import FeatureGenerator, get_mlp, train_mlp
 
 
 np.random.seed(42)
-tf.compat.v1.set_random_seed(42)
 
 
-def train_mlp(X_train, y_train, mlp):
-    class_weights = compute_class_weight(
-        "balanced", np.unique(np.argmax(y_train, axis=1)), np.argmax(y_train, axis=1))
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train, y_train, test_size=0.2, random_state=42)
+def identification(method, rs_cnt, batch_size):
+    out_file = open(os.path.join(os.path.abspath(""), "results",
+                                 "{}_{}_vggface2.txt".format(method, rs_cnt)), "w")
 
-    es = EarlyStopping(monitor="val_loss", mode="min",
-                       verbose=0, patience=100, restore_best_weights=True)
-    mlp.fit(x=X_train, y=y_train, epochs=100000, batch_size=X_train.shape[0],
-            verbose=0, callbacks=[es], validation_data=[X_val, y_val],
-            class_weight=class_weights)
-    return mlp
+    vggface2 = h5py.File(os.path.join(os.path.abspath(
+        ""), "data", "vggface2_{}_dataset.hdf5".format(method)), "r")
+    train, val, test = [vggface2[part] for part in ["train", "val", "test"]]
+    train_gen, val_gen, test_gen = [FeatureGenerator(
+        dataset, batch_size) for dataset in [train, val, test]]
 
+    model = get_mlp(512, np.unique(train[:, -1]).shape[0])
 
-def identification(dataset, feat_mode, bc_mode):
-    path = os.path.dirname(os.path.realpath(__file__))
-    dataset_path = os.path.abspath(os.path.join(
-        path, "..", feat_mode + "_data", dataset))
-    data = np.load(dataset_path + "_feat.npz")["arr_0"]
-    data_flip = np.load(dataset_path + "_feat_flip.npz")["arr_0"]
+    model = train_mlp(model, train_gen, val_gen, method, rs_cnt)
 
-    if bc_mode != "underlying":
-        rs_path = os.path.abspath(os.path.join(
-            path, "..", feat_mode + "_data", "lfw"))
-        rs_data = np.load(rs_path + "_feat.npz")["arr_0"]
-        data, data_flip = get_biocapsules(data, data_flip, rs_data)
+    y_true = test.dataset[:, -1]
+    y_prob = model.predict_generator(test_gen.flow(), steps=len(test_gen))
+    y_pred = np.argmax(y_prob, axis=-1)
 
-    X = data[:, :-1]
-    X_flip = data_flip[:, :-1]
-    y = data[:, -1]
-
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    ACC, FAR, FRR, PRE, REC, F1M = [], [], [], [], [], []
-    for k, (train_index, test_index) in enumerate(skf.split(X, y)):
-        print(dataset + " " + feat_mode + " " + bc_mode + " -- fold " + str(k))
-        X_train, X_train_flip, X_test = X[train_index], X_flip[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
-
-        X_train = np.vstack([X_train, X_train_flip])
-        y_train = np.hstack([y_train, y_train])
-
-        n_values = np.max(y_train.astype(int) - 1) + 1
-        y_train = np.eye(n_values)[y_train.astype(int) - 1]
-        y_test = np.eye(n_values)[y_test.astype(int) - 1]
-
-        mlp = get_mlp(X_train.shape[1], y_train.shape[1])
-        mlp = train_mlp(X_train, y_train, mlp)
-
-        y_pred = mlp.predict(X_test)
-        y_pred = np.argmax(y_pred, axis=1)
-        y_test = np.argmax(y_test, axis=1)
-        cnf_matrix = confusion_matrix(y_test, y_pred)
-
-        FP = np.sum(cnf_matrix.sum(axis=0) - np.diag(cnf_matrix)).astype(float)
-        FN = np.sum(cnf_matrix.sum(axis=1) - np.diag(cnf_matrix)).astype(float)
-        TP = np.sum(np.diag(cnf_matrix)).astype(float)
-        TN = 0.
-        for i in range(cnf_matrix.shape[0]):
-            temp = np.delete(cnf_matrix, i, 0)
-            temp = np.delete(temp, i, 1)
-            TN += float(np.sum(np.sum(temp)))
-
-        ACC.append((TP + TN) / (TP + TN + FP + FN))
-        FAR.append(FP / (FP + TN))
-        FRR.append(FN / (FN + TP))
-        PRE.append(TP / (TP + FP))
-        REC.append(TP / (TP + FN))
-        F1M.append(2 * TP / (2 * TP + FP + FN))
-
-    out_path = os.path.abspath(os.path.join(
-        path, "..", "results", "identification_" + dataset + "_" + feat_mode + "_" + bc_mode + ".txt"))
-    with open(out_path, "w") as out_file:
-        out_file.write(dataset + " " + feat_mode + " " + bc_mode + "\n")
-        out_file.write("ACC -- " + str(np.average(ACC) * 100) + "\n")
-        out_file.write("FAR -- " + str(np.average(FAR) * 100) + "\n")
-        out_file.write("FRR -- " + str(np.average(FRR) * 100) + "\n")
-        out_file.write("PRE -- " + str(np.average(PRE) * 100) + "\n")
-        out_file.write("REC -- " + str(np.average(REC) * 100) + "\n")
-        out_file.write("F1M -- " + str(np.average(F1M) * 100) + "\n")
-        out_file.close()
+    out_file.write("Fold {}:\n".format(fold))
+    out_file.write("ACC -- {:.6f}\n".format(accuracy_score(y_true, y_pred)))
+    out_file.write("FPR -- {:.6f}\n".format(
+        1 - sensitivity_score(y_true, y_pred, average="micro")))
+    out_file.write("FRR -- {:.6f}\n".format(
+        1 - specificity_score(y_true, y_pred, average="micro")))
+    out_file.write(
+        "PRE -- {:.6f}\n".format(precision_score(y_true, y_pred, average="micro")))
+    out_file.write(
+        "REC -- {:.6f}\n".format(recall_score(y_true, y_pred, average="micro")))
+    out_file.write(
+        "F1 -- {:.6f}\n".format(f1_score(y_true, y_pred, average="micro")))
+    out_file.close()
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser.add_argument("-d", "--dataset", required=True,
-                        help="dataset to use in identification")
-    parser.add_argument("-f", "--feat_mode", required=True, choices=["arcface", "facenet"],
-                        help="feat_mode to use in identification")
-    parser.add_argument("-b", "--bc_mode", required=True, choices=["underlying", "same"],
-                        help="bc_mode to use in identification")
+    parser.add_argument("-m", "--method", required=True, choices=["arcface", "facenet"],
+                        help="method to use in feature extraction")
+    parser.add_argument("-rs", "--rs_cnt", default=0, type=int, choices=range(0, 11),
+                        help="number of rs in biocapsule generation")
+    parser.add_argument("-bs", "--batch_size", default=1024, type=int,
+                        help="batch size to use in training")
     args = vars(parser.parse_args())
 
-    identification(args["dataset"], args["feat_mode"], args["bc_mode"])
+    identification(args["method"], args["rs_cnt"], args["batch_size"])

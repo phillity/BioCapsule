@@ -3,8 +3,10 @@ __pycache__
 .vscode
 
 *.bat
-*.npz
+*.log
 *.txt
+*.npz
+*.hdf5
 
 src/face_models/model-ir-v1
 src/face_models/model-mtcnn
