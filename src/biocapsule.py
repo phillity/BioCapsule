@@ -26,3 +26,13 @@ class BioCapsuleGenerator:
         rs_signature = self.__signature_extraction(rs_feature)
         rs_key = self.__key_generation(rs_signature)
         return np.multiply(user_feature, rs_key) + np.multiply(rs_feature, user_key)
+
+    def biocapsule_batch(self, user_features, rs_feature):
+        rs_signature = self.__signature_extraction(rs_feature)
+        rs_key = self.__key_generation(rs_signature)
+        for i in range(user_features.shape[0]):
+            user_signature = self.__signature_extraction(user_features[i])
+            user_key = self.__key_generation(user_signature)
+            user_features[i] = np.multiply(user_features[i], rs_key) + \
+                np.multiply(rs_feature, user_key)
+        return user_features

@@ -63,13 +63,17 @@ def verification(method, rs_cnt):
         out_file.write("FP -- {}, FN -- {}\n".format(fp, fn))
         out_file.flush()
 
-    def p(metric): return (np.average(metric), np.std(metric))
     out_file.write("Overall:\n")
-    out_file.write("ACC -- {:.6f} (+/-{:.6f})\n".format(p(acc)))
-    out_file.write("FPR -- {:.6f} (+/-{:.6f})\n".format(p(fpr)))
-    out_file.write("FRR -- {:.6f} (+/-{:.6f})\n".format(p(frr)))
-    out_file.write("EER -- {:.6f} (+/-{:.6f})\n".format(p(err)))
-    out_file.write("AUC -- {:.6f} (+/-{:.6f})\n".format(p(aucs)))
+    out_file.write(
+        "ACC -- {:.6f} (+/-{:.6f})\n".format(np.average(acc), np.std(acc)))
+    out_file.write(
+        "FPR -- {:.6f} (+/-{:.6f})\n".format(np.average(fpr), np.std(fpr)))
+    out_file.write(
+        "FRR -- {:.6f} (+/-{:.6f})\n".format(np.average(frr), np.std(frr)))
+    out_file.write(
+        "EER -- {:.6f} (+/-{:.6f})\n".format(np.average(eer), np.std(eer)))
+    out_file.write(
+        "AUC -- {:.6f} (+/-{:.6f})\n".format(np.average(aucs), np.std(aucs)))
     out_file.close()
 
     return y_true, y_prob, acc

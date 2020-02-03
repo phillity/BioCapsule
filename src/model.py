@@ -3,37 +3,13 @@ import numpy as np
 from sklearn.utils.class_weight import compute_class_weight
 import tensorflow as tf
 from tensorflow.keras.models import Model
-from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Input, Dense, Activation, BatchNormalization, Dropout
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, CSVLogger
+from biocapsule import BioCapsuleGenerator
 
 
 np.random.seed(42)
 tf.compat.v1.set_random_seed(42)
-
-
-def get_batches(l, n):
-    for i in range(0, len(l), n):
-        yield l[i:i + n]
-
-
-class FeatureGenerator:
-    def __init__(self, dataset, batch_size=512):
-        super().__init__()
-        self.dataset = dataset
-        self.idx = np.arange(dataset.shape[0])
-        self.batch_size = batch_size
-        np.random.shuffle(self.idx)
-
-    def __len__(self):
-        return len(list(get_batches(self.idx, self.batch_size)))
-
-    def flow(self):
-        batch_idxs = list(get_batches(self.idx, self.batch_size))
-        for idx in batch_idxs:
-            batch = self.dataset[np.sort(idx), :]
-            X, y = batch[:, :-1], np.around(batch[:, -1]) - 1
-            yield X, y
 
 
 def get_mlp(in_size, out_size):
@@ -53,8 +29,15 @@ def get_mlp(in_size, out_size):
     return mlp
 
 
-def train_mlp(mlp, train_gen, val_gen, method, rs_cnt):
-    y_train = train_gen.dataset[:, -1]
+def train_mlp(mlp, train, val, rs, rs_cnt, method, batch_size):
+    X_train, y_train = train[:, :-1], train[:, -1].astype(int) - 1
+    X_val, y_val = val[:, :-1], val[:, -1].astype(int) - 1
+
+    bc_gen = BioCapsuleGenerator()
+    for i in range(rs_cnt):
+        X_train = bc_gen.biocapsule_batch(X_train, rs[i, :-1])
+        X_val = bc_gen.biocapsule_batch(X_val, rs[i, :-1])
+
     class_weights = compute_class_weight("balanced",
                                          np.unique(y_train),
                                          y_train)
@@ -67,8 +50,20 @@ def train_mlp(mlp, train_gen, val_gen, method, rs_cnt):
     log = CSVLogger(os.path.join(os.path.abspath(""), "results",
                                  "{}_{}_vggface2.log".format(method, rs_cnt)))
 
-    mlp.fit_generator(train_gen.flow(), steps_per_epoch=len(train_gen),
-                      epochs=10000, callbacks=[mc, es, log],
-                      validation_data=val_gen.flow(), validation_steps=len(val_gen),
-                      class_weight=class_weights)
+    mlp.fit(x=X_train, y=y_train,
+            validation_data=(X_val, y_val),
+            epochs=1000, batch_size=batch_size,
+            callbacks=[mc, es, log],
+            class_weight=class_weights)
     return mlp
+
+
+def predict_mlp(mlp, test, rs, rs_cnt):
+    X_test, y_true = test[:, :-1], test[:, -1].astype(int) - 1
+
+    bc_gen = BioCapsuleGenerator()
+    for i in range(rs_cnt):
+        X_test = bc_gen.biocapsule_batch(X_test, rs[i, :-1])
+
+    y_prob = mlp.predict(X_test)
+    return y_prob
