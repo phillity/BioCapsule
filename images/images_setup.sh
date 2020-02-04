@@ -1,5 +1,11 @@
 #!/bin/bash
 
+echo 'Downloading and extracting VGGFace2_Visualize images!'
+
+wget https://cs.iupui.edu/~phillity/vggface2_visualize.tar.gz
+tar -xvzf vggface2_visualize.tar.gz
+rm vggface2_visualize.tar.gz
+
 echo 'Downloading and extracting LFW images!'
 
 wget http://vis-www.cs.umass.edu/lfw/lfw.tgz

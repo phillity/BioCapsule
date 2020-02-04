@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo 'Downloading and extracting LFW and RS features!'
+echo 'Downloading and extracting VGGFace2_Visulaize, LFW and RS features!'
 
 wget https://cs.iupui.edu/~phillity/features.tar.gz
 tar -xvzf features.tar.gz

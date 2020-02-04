@@ -3,6 +3,7 @@ __pycache__
 .vscode
 
 *.h5
+*.png
 *.bat
 *.log
 *.txt
@@ -24,3 +25,7 @@ images/vggface2_*
 vggface2_job.py
 verification_job.py
 verification_job.sh
+verification_leakage_job.py
+verification_leakage_job.sh
+identification_job.py
+identification_job.sh
