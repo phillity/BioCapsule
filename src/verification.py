@@ -2,12 +2,10 @@ import os
 import numpy as np
 from scipy.optimize import brentq
 from scipy.interpolate import interp1d
-from sklearn.svm import SVC
 from sklearn.metrics import auc, roc_curve, confusion_matrix
 from sklearn.metrics.pairwise import euclidean_distances
-from sklearn.utils.class_weight import compute_sample_weight
-from argparse import ArgumentParser
 from utils import bc_lfw
+from verification_model import get_clf, train_clf, predict_clf
 
 
 np.random.seed(42)
@@ -22,27 +20,32 @@ def verification(method, rs_cnt):
     acc, fpr, frr, eer, aucs = [np.zeros((10,)) for _ in range(5)]
     y_true, y_prob = [np.zeros((10, 600)) for _ in range(2)]
     for fold in range(10):
+        print("BC+LFW Verification -- Fold {} -- RS Count {}".format(fold, rs_cnt))
         train_fold = lfw["train_{}".format(fold)]
         X_train = train_fold[:, :-1]
         y_train = train_fold[:, -1][..., np.newaxis]
 
         p_dist = euclidean_distances(X_train, X_train)
         p_dist = p_dist[np.triu_indices_from(p_dist, k=1)][..., np.newaxis]
-
         y_mat = np.equal(y_train, y_train.T).astype(int)
         y = y_mat[np.triu_indices_from(y_mat, k=1)]
-        y_weights = compute_sample_weight("balanced", y)
 
-        svm = SVC(kernel="linear", probability=True, random_state=42).fit(
-            p_dist, y, y_weights)
+        X_train = np.vstack([p_dist[y == 0][np.random.choice(p_dist[y == 0].shape[0], p_dist[y == 1].shape[0], replace=False)],
+                             p_dist[y == 1]])
+        y_train = np.hstack(
+            [np.zeros((p_dist[y == 1].shape[0],)), np.ones((p_dist[y == 1].shape[0],))])
+
+        clf = get_clf()
+
+        clf = train_clf(clf, X_train, y_train)
 
         test_fold = lfw["test_{}".format(fold)]
         p_dist = euclidean_distances(
             test_fold[:, 0, :][:, :-1], test_fold[:, 1, :][:, :-1])
         p_dist = p_dist.diagonal()[..., np.newaxis]
-
         y_true[fold, :] = np.hstack([np.ones((300,)), np.zeros((300,))])
-        y_prob[fold, :] = svm.predict_proba(p_dist)[:, 1]
+
+        y_prob[fold, :] = predict_clf(clf, p_dist)[:, 1]
 
         tn, fp, fn, tp = confusion_matrix(
             y_true[fold, :], np.around(y_prob[fold, :])).ravel()
@@ -80,17 +83,12 @@ def verification(method, rs_cnt):
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser()
-    parser.add_argument("-m", "--method", required=True, choices=["arcface", "facenet"],
-                        help="method to use in feature extraction")
-    parser.add_argument("-rs", "--rs_cnt", default=0, type=int, choices=range(0, 11),
-                        help="number of rs in biocapsule generation")
-    args = vars(parser.parse_args())
-
-    y_true, y_prob, acc = verification(args["method"], args["rs_cnt"])
-    np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "results", "{}_{}_lfw_true.npz".format(args["method"], args["rs_cnt"])), y_true)
-    np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "results", "{}_{}_lfw_prob.npz".format(args["method"], args["rs_cnt"])), y_prob)
-    np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "results", "{}_{}_lfw_acc.npz".format(args["method"], args["rs_cnt"])), acc)
+    for method in ["arcface", "facenet"]:
+        for rs_cnt in range(6):
+            y_true, y_prob, acc = verification(method, rs_cnt)
+            np.savez_compressed(os.path.join(os.path.abspath(
+                ""), "results", "{}_{}_lfw_true.npz".format(method, rs_cnt)), y_true)
+            np.savez_compressed(os.path.join(os.path.abspath(
+                ""), "results", "{}_{}_lfw_prob.npz".format(method, rs_cnt)), y_prob)
+            np.savez_compressed(os.path.join(os.path.abspath(
+                ""), "results", "{}_{}_lfw_acc.npz".format(method, rs_cnt)), acc)

@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from imblearn.metrics import sensitivity_score, specificity_score
 from argparse import ArgumentParser
-from model import get_mlp, train_mlp, predict_mlp
+from idenification_model import get_mlp, train_mlp, predict_mlp
 
 
 np.random.seed(42)

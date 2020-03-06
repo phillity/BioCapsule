@@ -14,6 +14,16 @@ wget http://vis-www.cs.umass.edu/lfw/people.txt
 tar -xvzf lfw.tgz
 rm lfw.tgz
 
+echo 'Downloading and extracting GTDB images!'
+
+wget http://www.anefian.com/research/gt_db.zip
+unzip gt_db.zip
+rm gt_db.zip
+mv gt_db gtdb
+cd gtdb
+find . -name "*.jbf" -type f -delete
+cd ..
+
 echo 'Downloading and extracting RS images!'
 
 wget https://cs.iupui.edu/~phillity/rs.tar.gz

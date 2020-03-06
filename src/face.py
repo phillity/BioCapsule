@@ -6,6 +6,9 @@ from utils import walk, progress_bar
 from face_models.face_model import ArcFaceModel, FaceNetModel
 
 
+np.random.seed(42)
+
+
 class FaceNet:
     def __init__(self, gpu=-1):
         self.__model = FaceNetModel(gpu)
@@ -90,8 +93,8 @@ if __name__ == "__main__":
     print(np.sum(np.square(feat_1 - feat_2)))
     print(np.dot(feat_1, feat_2.T))
 
-    cv2.imshow("before", img_2)
-    img = facenet.preprocess(img_2)
+    cv2.imshow("before", img_1)
+    img = facenet.preprocess(img_1)
     cv2.imshow("after", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
     cv2.waitKey(0)
     cv2.destroyAllWindows()

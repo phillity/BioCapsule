@@ -22,7 +22,8 @@ def get_mlp(in_size, out_size):
     x = BatchNormalization()(x)
     x = Activation("relu")(x)
     x = Dropout(0.25)(x)
-    predictions = Dense(out_size, activation="softmax")(x)
+    x = Dense(out_size)(x)
+    predictions = Activation("softmax")(x)
     mlp = Model(inputs=inputs, outputs=predictions)
     mlp.compile(optimizer="adam",
                 loss="sparse_categorical_crossentropy", metrics=["acc"])
