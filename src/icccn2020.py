@@ -134,15 +134,9 @@ if __name__ == "__main__":
         fi = open(os.path.join(os.path.abspath(""), "results",
                                "icccn2020_{}_bc_{}.txt".format(args["dataset"], args["role_dist"])), "w")
 
-    '''
+    # extract features for experiment
     features, features_flip = extract_dataset(
         args["dataset"], "arcface", args["gpu"])
-    '''
-
-    features = np.load(os.path.join(os.path.abspath(""), "data",
-                                    "{}_arcface_feat.npz".format(args["dataset"])))["arr_0"]
-    features_flip = np.load(os.path.join(os.path.abspath(""), "data",
-                                         "{}_arcface_feat_flip.npz".format(args["dataset"])))["arr_0"]
 
     # remove all subjects with less than 5 images from LFW dataset
     if args["dataset"] == "lfw":
@@ -206,7 +200,7 @@ if __name__ == "__main__":
                     X_train_i = X_train[rs_map[int(y_i - 1)]]
                     y_train_i = np.copy(y_train[rs_map[int(y_i - 1)]])
                     X_test_i = X_test[rs_map[int(y_i - 1)]]
-                    y_test_i = np.copy(y_test[rs_map[int(y_i - 1)]])   
+                    y_test_i = np.copy(y_test[rs_map[int(y_i - 1)]])
 
                 threads.append(Thread(target=authenticate, args=(
                     y_i, X_train_i, y_train_i, X_test_i, y_test_i, queue)))
