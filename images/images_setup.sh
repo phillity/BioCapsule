@@ -2,7 +2,7 @@
 
 echo 'Downloading and extracting VGGFace2_Visualize images!'
 
-wget https://cs.iupui.edu/~phillity/vggface2_visualize.tar.gz
+wget https://cs.iupui.edu/~xzou/Bio-Capsule-Research-2022/vggface2_visualize.tar.gz
 tar -xvzf vggface2_visualize.tar.gz
 rm vggface2_visualize.tar.gz
 
@@ -26,6 +26,6 @@ cd ..
 
 echo 'Downloading and extracting RS images!'
 
-wget https://cs.iupui.edu/~phillity/rs.tar.gz
+wget https://cs.iupui.edu/~xzou/Bio-Capsule-Research-2022/rs.tar.gz
 tar -xvzf rs.tar.gz
 rm rs.tar.gz

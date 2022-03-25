@@ -2,14 +2,6 @@
 
 echo 'Downloading and extracting VGGFace2_Visulaize, LFW and RS features!'
 
-wget https://cs.iupui.edu/~phillity/features.tar.gz
+wget https://cs.iupui.edu/~xzou/Bio-Capsule-Research-2022/features.tar.gz
 tar -xvzf features.tar.gz
 rm features.tar.gz
-
-echo 'Downloading and extracting VGGFace2 ArcFace features!'
-
-wget https://cs.iupui.edu/~phillity/vggface2_arcface_dataset.hdf5
-
-echo 'Downloading and extracting VGGFace2 FaceNet features!'
-
-wget https://cs.iupui.edu/~phillity/vggface2_facenet_dataset.hdf5
