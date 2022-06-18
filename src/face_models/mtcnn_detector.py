@@ -20,7 +20,7 @@ class MtcnnDetector(object):
     """
 
     def __init__(self,
-                 model_folder=".",
+                 model_dir=".",
                  minsize=20,
                  threshold=[0.6, 0.7, 0.8],
                  factor=0.709,
@@ -32,7 +32,7 @@ class MtcnnDetector(object):
 
             Parameters:
             ----------
-                model_folder : string
+                model_dir : string
                     path for the models
                 minsize : float number
                     minimal face to detect
@@ -51,7 +51,7 @@ class MtcnnDetector(object):
 
         # load 4 models from folder
         models = ["det1", "det2", "det3", "det4"]
-        models = [os.path.join(model_folder, f) for f in models]
+        models = [os.path.join(model_dir, f) for f in models]
 
         self.PNets = []
         for i in range(num_worker):

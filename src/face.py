@@ -1,92 +1,187 @@
 import os
+from argparse import ArgumentParser
+
 import cv2
 import numpy as np
-from argparse import ArgumentParser
-from utils import walk, progress_bar
-from face_models.face_model import ArcFaceModel, FaceNetModel
 
+from face_models import ArcFaceModel, FaceNetModel
+from utils import progress_bar, walk
 
 np.random.seed(42)
 
 
 class FaceNet:
-    def __init__(self, gpu=-1):
+    """FaceNet: A Unified Embedding for Face Recognition and Clustering
+    https://arxiv.org/abs/1503.03832
+
+    Uses https://github.com/davidsandberg/facenet implementation
+
+    """
+
+    def __init__(self, gpu: int = -1):
+        """Initialize FaceNet model object. Provide an int
+        corresponding to a GPU id to use for models. If -1 is given
+        CPU is used rather than GPU.
+
+        """
         self.__model = FaceNetModel(gpu)
 
-    def preprocess(self, image):
-        return self.__model.get_input(image)
+    def preprocess(self, face_img: np.ndarray) -> np.ndarray:
+        """Preprocess facial image for FaceNet feature extraction
+        using a MTCNN preprocessing model. MTCNN detects facial bounding
+        boxes and facial landmarks to get face region-of-interest and perform
+        facial alignment.
 
-    def extract(self, image, align=True):
+        Parameters
+        ----------
+        face_img: np.ndarray
+            Face image of any width/height with BGR colorspace channels
+
+        Returns
+        -------
+        np.ndarray
+            Aligned facial image of shape 160x160x3 with RGB colorspace
+
+        """
+        return self.__model.get_input(face_img)
+
+    def extract(self, face_img: np.ndarray, align: bool = True) -> np.ndarray:
+        """Perform FaceNet feature extraction on input image. Optionally
+        apply preprocessing before extract.
+
+        Parameters
+        ----------
+        face_img: np.ndarray
+            Face image of any width/height with BGR or RCG colorspace channels
+        align: bool = True
+            Flag if preprocessing should be applied prior to feature extraction
+
+        Returns
+        -------
+        np.ndarray
+            Extracted FaceNet feature vector of shape 512x1
+
+        """
         if align:
-            image = self.preprocess(image)
+            face_img = self.preprocess(face_img)
 
-        if image.shape != (160, 160, 3):
-            image = cv2.resize(image, (160, 160))
+        if face_img.shape != (160, 160, 3):
+            face_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+            face_img = cv2.resize(face_img, (160, 160))
 
-        return self.__model.get_feature(image)
+        return self.__model.get_feature(face_img)
 
 
 class ArcFace:
-    def __init__(self, gpu=-1):
+    def __init__(self, gpu: int = -1):
         self.__model = ArcFaceModel(gpu)
 
-    def preprocess(self, image):
-        return self.__model.get_input(image)
+    def preprocess(self, face_img: np.ndarray) -> np.ndarray:
+        """Preprocess facial image for ArcFace feature extraction
+        using a MTCNN preprocessing model. MTCNN detects facial bounding
+        boxes and facial landmarks to get face region-of-interest and perform
+        facial alignment.
 
-    def extract(self, image, align=True):
+        Parameters
+        ----------
+        face_img: np.ndarray
+            Face image of any width/height with BGR colorspace channels
+
+        Returns
+        -------
+        np.ndarray
+            Aligned facial image of shape 3x112x112 with RGB colorspace
+
+        """
+        return self.__model.get_input(face_img)
+
+    def extract(self, face_img: np.ndarray, align: bool = True) -> np.ndarray:
+        """Perform ArcFace feature extraction on input preprocessed image.
+
+        Parameters
+        ----------
+        aligned_img: np.ndarray
+            Aligned facial image of shape 3x112x112 with RGB colorspace
+        align: bool = True
+            Flag if preprocessing should be applied prior to feature extraction
+
+        Returns
+        -------
+        np.ndarray
+            Extracted FaceNet feature vector of shape 512x1
+
+        """
         if align:
-            image = self.preprocess(image)
+            face_img = self.preprocess(face_img)
 
-        if image.shape != (3, 112, 112):
-            image = cv2.resize(image, (112, 112))
-            image = np.rollaxis(cv2.cvtColor(image, cv2.COLOR_RGB2BGR), 2, 0)
+        if face_img.shape != (3, 112, 112):
+            face_img = cv2.resize(face_img, (112, 112))
+            face_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+            face_img = np.rollaxis(face_img, 2, 0)
 
-        return self.__model.get_feature(image)
+        return self.__model.get_feature(face_img)
 
 
-def extract_dataset(dataset, extractor="arcface", gpu=-1):
+def extract_dataset(
+    dataset: str, extractor: str = "arcface", gpu: int = -1
+) -> np.ndarray:
+    """Extract feature vectors of each image within a dataset.
+    Return array conatining all extracted features.
+
+    Parameters
+    ----------
+    dataset: str
+        Dataset to extract features from. Examples would be gtdb or lfw
+    extractor: str = "arcface"
+        Model to use for feature extraction. Currently supported options are
+        arcface/facenet
+    gpu: int = -1
+        GPU id to use for feature extraction and preprocessing models. If -1
+        is given, CPU is used rather than GPU
+
+    Returns
+    -------
+    np.ndarray
+        Array of features corresponding each image from a dataset. Subject ids
+        are appended to end of feature vectors. Resulting output will be of
+        shape (number of dataset images)x513
+
+    """
     if extractor == "arcface":
         face = ArcFace(gpu)
     else:
         face = FaceNet(gpu)
 
-    dataset_path = os.path.join(os.path.abspath(""), "images", dataset)
+    dataset_path = f"images/{dataset}"
 
     file_cnt = len(walk(dataset_path))
     features = np.zeros((file_cnt, 513))
-    features_flip = np.zeros((file_cnt, 513))
+
+    subjects = sorted(
+        os.listdir(dataset_path), key=lambda subject: subject.lower()
+    )
 
     image_cnt = 0
-    subjects = os.listdir(dataset_path)
-    subjects = [x for _, x in sorted(
-        zip([subject.lower() for subject in subjects], subjects))]
     for subject_id, subject in enumerate(subjects):
-        progress_bar(dataset + " " + extractor,
-                     float(image_cnt + 1) / file_cnt)
+        progress_bar(f"{dataset} {extractor}", (image_cnt + 1) / file_cnt)
 
-        for image in os.listdir(os.path.join(dataset_path, subject)):
-            image = cv2.imread(os.path.join(dataset_path, subject, image))
+        for image in os.listdir(f"{dataset_path}/{subject}"):
+            image = cv2.imread(f"{dataset_path}/{subject}/{image}")
 
             feature = face.extract(image)
             features[image_cnt, :] = np.append(feature, subject_id + 1)
 
-            feature_flip = face.extract(cv2.flip(image, 1))
-            features_flip[image_cnt, :] = np.append(
-                feature_flip, subject_id + 1)
-
             image_cnt += 1
 
-    return features, features_flip
+    return features
 
 
 if __name__ == "__main__":
-    '''
+    """
     facenet = FaceNet()
 
-    img_1 = cv2.imread(os.path.join(
-        os.path.abspath(""), "src", "face_models", "tom1.jpg"))
-    img_2 = cv2.imread(os.path.join(
-        os.path.abspath(""), "src", "face_models", "adrien.jpg"))
+    img_1 = cv2.imread("src/face_models/examples/tom1.jpg"))
+    img_2 = cv2.imread("src/face_models/examples/adrien.jpg"))
 
     feat_1 = facenet.extract(img_1)
     feat_2 = facenet.extract(img_2)
@@ -108,24 +203,43 @@ if __name__ == "__main__":
 
     cv2.imshow("before", img_2)
     img = arcface.preprocess(img_2)
-    cv2.imshow("after", cv2.cvtColor(
-        np.rollaxis(img, 0, 3), cv2.COLOR_RGB2BGR))
+    cv2.imshow(
+        "after",
+        cv2.cvtColor(np.rollaxis(img, 0, 3), cv2.COLOR_RGB2BGR)
+    )
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    '''
+    """
+
     parser = ArgumentParser()
-    parser.add_argument("-d", "--dataset", required=True,
-                        help="dataset to use in feature extraction")
-    parser.add_argument("-m", "--method", required=True, choices=["arcface", "facenet"],
-                        help="method to use in feature extraction")
-    parser.add_argument("-gpu", "--gpu", required=False, type=int, default=-1,
-                        help="gpu to use in feature extraction")
+    parser.add_argument(
+        "-d",
+        "--dataset",
+        required=True,
+        help="dataset to use in feature extraction",
+    )
+    parser.add_argument(
+        "-m",
+        "--method",
+        required=True,
+        choices=["arcface", "facenet"],
+        help="method to use in feature extraction",
+    )
+    parser.add_argument(
+        "-gpu",
+        "--gpu",
+        required=False,
+        type=int,
+        default=-1,
+        help="gpu to use in feature extraction",
+    )
     args = vars(parser.parse_args())
 
-    features, features_flip = extract_dataset(
-        args["dataset"], args["method"], args["gpu"])
+    features = extract_dataset(args["dataset"], args["method"], args["gpu"])
 
-    np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "data", "{}_{}_feat.npz".format(args["dataset"], args["method"])), features)
-    np.savez_compressed(os.path.join(os.path.abspath(
-        ""), "data", "{}_{}_feat_flip.npz".format(args["dataset"], args["method"])), features_flip)
+    np.savez_compressed(
+        os.path.join(
+            "data/{}_{}_feat.npz".format(args["dataset"], args["method"])
+        ),
+        features,
+    )
