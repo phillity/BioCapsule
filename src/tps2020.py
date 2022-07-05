@@ -1,5 +1,4 @@
 import datetime
-from inspect import stack
 import os
 from argparse import ArgumentParser
 
@@ -132,6 +131,206 @@ def get_bcs(features: np.ndarray, rs_features: np.ndarray) -> np.ndarray:
     return bcs
 
 
+def experiment(
+    dataset: str, mode: str, role_dist: str, flipped: bool, gpu: int
+):
+    if mode == "under":
+        fi = open(f"results/tps2020_{dataset}_under.txt", "w")
+    else:
+        fi = open(f"results/tps2020_{dataset}_bc_{role_dist}.txt", "w")
+
+    print(f"Computing Features: {datetime.datetime.now()}")
+
+    # If already extracted features, use the precomputed features
+    if not flipped and os.path.exists(
+        f"data/{dataset}_arcface_mtcnn_feat.npz"
+    ):
+        features = np.load(f"data/{dataset}_arcface_mtcnn_feat.npz")["arr_0"]
+
+    elif (
+        flipped
+        and os.path.exists(f"data/{dataset}_arcface_mtcnn_feat.npz")
+        and os.path.exists(f"data/{dataset}_arcface_mtcnn_flip_feat.npz")
+    ):
+        features = np.load(f"data/{dataset}_arcface_mtcnn_feat.npz")["arr_0"]
+        flipped_features = np.load(
+            f"data/{dataset}_arcface_mtcnn_flip_feat.npz"
+        )["arr_0"]
+
+    else:
+        extract_dataset(dataset, "arcface", "mtcnn", flipped, gpu)
+
+        features = np.load(f"data/{dataset}_arcface_mtcnn_feat.npz")["arr_0"]
+
+        if flipped:
+            flipped_features = np.load(
+                f"data/{dataset}_arcface_mtcnn_flip_feat.npz"
+            )["arr_0"]
+
+    print(f"Done Computing Features {datetime.datetime.now()}")
+
+    # Remove all subjects with less than 5 images from LFW dataset
+    if dataset == "lfw":
+        features = filter_lfw(features)
+
+        if flipped:
+            flipped_features = filter_lfw(flipped_features)
+
+    # Compute BioCapsules for features using Reference Subjects
+    if mode == "bc":
+        print(f"Computing BCs: {datetime.datetime.now()}")
+
+        rs_features = get_rs_features()
+        rs_map = rs_rbac(len(np.unique(features[:, -1])), role_dist)
+        cnts = np.unique(rs_map, return_counts=True)[1]
+        for i, cnt in enumerate(cnts):
+            fi.write(f"Role {i + 1} -- {cnt} Subjects\n")
+
+        bcs = get_bcs(features, rs_features)
+
+        if flipped:
+            flipped_bcs = get_bcs(flipped_features, rs_features)
+
+        print(f"Done Computing BCs: {datetime.datetime.now()}")
+
+    # TP, FP, FN, FP
+    conf_mat = np.zeros((4,))
+
+    print(f"Starting KFold Experiment: {datetime.datetime.now()}")
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    for k, (train_index, test_index) in enumerate(
+        skf.split(features[:, :-1], features[:, -1])
+    ):
+        print(f"Fold {k} : {datetime.datetime.now()}")
+
+        if mode == "under":
+            X_train, y_train = (
+                features[:, :-1][train_index],
+                features[:, -1][train_index],
+            )
+            X_test, y_test = (
+                features[:, :-1][test_index],
+                features[:, -1][test_index],
+            )
+
+            if flipped:
+                X_train_flip, y_train_flip = (
+                    flipped_features[:, :-1][train_index],
+                    flipped_features[:, -1][train_index],
+                )
+
+                X_train = np.vstack([X_train, X_train_flip])
+                y_train = np.hstack([y_train, y_train_flip])
+
+            clf = LogisticRegression(
+                class_weight="balanced", random_state=42
+            ).fit(X_train, y_train)
+
+            y_pred = clf.predict(X_test)
+
+            # Aggregate prediction results with respect to each subject
+            for subject_id in np.unique(y_test):
+                y_test_subject = (y_test == subject_id).astype(int)
+                y_pred_subject = (y_pred == subject_id).astype(int)
+                conf_mat += confusion_matrix(
+                    y_test_subject, y_pred_subject
+                ).ravel()
+
+        else:
+            train_mask = np.zeros(
+                (train_index.shape[0] + test_index.shape[0]), dtype=bool,
+            )
+            train_mask[train_index] = True
+            train_mask = np.concatenate(
+                [train_mask for _ in range(np.unique(rs_map).shape[0])]
+            )
+
+            test_mask = np.zeros(
+                (train_index.shape[0] + test_index.shape[0]), dtype=bool,
+            )
+            test_mask[test_index] = True
+            test_mask = np.concatenate(
+                [test_mask for _ in range(np.unique(rs_map).shape[0])]
+            )
+
+            X_train, y_train_subject, y_train_rs = (
+                bcs[:, :-2][train_mask],
+                bcs[:, -2][train_mask],
+                bcs[:, -1][train_mask],
+            )
+            X_test, y_test_subject, y_test_rs = (
+                bcs[:, :-2][test_mask],
+                bcs[:, -2][test_mask],
+                bcs[:, -1][test_mask],
+            )
+
+            if flipped:
+                X_train_flip, y_train_subject_flip, y_train_rs_flip = (
+                    flipped_bcs[:, :-2][train_mask],
+                    flipped_bcs[:, -2][train_mask],
+                    flipped_bcs[:, -1][train_mask],
+                )
+
+                X_train = np.vstack([X_train, X_train_flip])
+                y_train_subject = np.hstack(
+                    [y_train_subject, y_train_subject_flip]
+                )
+                y_train_rs = np.hstack([y_train_rs, y_train_rs_flip])
+
+            for subject_id in np.unique(y_test_subject):
+                rs_id = float(rs_map[int(subject_id) - 1] + 1)
+
+                y_train_binary = np.zeros(X_train.shape[0])
+                y_train_binary[
+                    np.logical_and(
+                        y_train_subject == subject_id, y_train_rs == rs_id,
+                    )
+                ] = 1
+
+                y_test_binary = np.zeros(X_test.shape[0])
+                y_test_binary[
+                    np.logical_and(
+                        y_test_subject == subject_id, y_test_rs == rs_id,
+                    )
+                ] = 1
+
+                # We assume the RS is automatically specified when
+                # a username is given during an authentication attempt
+                X_train_bianry = X_train[y_train_rs == rs_id]
+                y_train_binary = y_train_binary[y_train_rs == rs_id]
+                X_test_bianry = X_test[y_test_rs == rs_id]
+                y_test_binary = y_test_binary[y_test_rs == rs_id]
+
+                clf = LogisticRegression(
+                    class_weight="balanced", random_state=42
+                ).fit(X_train_bianry, y_train_binary)
+
+                y_pred = clf.predict(X_test_bianry)
+
+                conf_mat += confusion_matrix(y_test_binary, y_pred).ravel()
+
+    print(f"Finished KFold Experiment: {datetime.datetime.now()}")
+
+    # (tn + tp) / (tn + fp + fn + tp)
+    acc = (conf_mat[0] + conf_mat[3]) / np.sum(conf_mat)
+    # fp / (tn + fp)
+    far = conf_mat[1] / (conf_mat[0] + conf_mat[1])
+    # fn / (fn + tp)
+    frr = conf_mat[2] / (conf_mat[2] + conf_mat[3])
+
+    fi.write(f"Dataset -- {dataset}\n")
+    fi.write(f"BC  -- {mode}\n")
+    fi.write(f"RS  -- {role_dist}\n")
+    fi.write(f"TN -- {conf_mat[0]}\n")
+    fi.write(f"TP -- {conf_mat[3]}\n")
+    fi.write(f"FP -- {conf_mat[1]}\n")
+    fi.write(f"FN -- {conf_mat[2]}\n")
+    fi.write(f"ACC -- {acc:.6f}\n")
+    fi.write(f"FAR -- {far:.6f}\n")
+    fi.write(f"FRR -- {frr:.6f}\n")
+    fi.close()
+
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
@@ -157,6 +356,14 @@ if __name__ == "__main__":
         help="role distribution to use in experiment",
     )
     parser.add_argument(
+        "-f",
+        "--flipped",
+        required=False,
+        action="store_true",
+        default=False,
+        help="use flipped features in experiment",
+    )
+    parser.add_argument(
         "-gpu",
         "--gpu",
         required=False,
@@ -166,158 +373,10 @@ if __name__ == "__main__":
     )
     args = vars(parser.parse_args())
 
-    if args["mode"] == "under":
-        fi = open("results/tps2020_{}_under.txt".format(args["dataset"]), "w")
-    else:
-        fi = open(
-            "results/tps2020_{}_bc_{}.txt".format(
-                args["dataset"], args["role_dist"]
-            ),
-            "w",
-        )
-
-    print(f"Computing Features: {datetime.datetime.now()}")
-
-    # If already extracted features, use the precomputed features
-    if args["dataset"] == "lfw" and os.path.exists(
-        "data/lfw_arcface_feat.npz"
-    ):
-        features = np.load("data/lfw_arcface_feat.npz")["arr_0"]
-    elif args["dataset"] == "gtdb" and os.path.exists(
-        "data/gtdb_arcface_feat.npz"
-    ):
-        features = np.load("data/gtdb_arcface_feat.npz")["arr_0"]
-    else:
-        features = extract_dataset(args["dataset"], "arcface", args["gpu"])
-
-    print(f"Done Computing Features {datetime.datetime.now()}")
-
-    # Remove all subjects with less than 5 images from LFW dataset
-    if args["dataset"] == "lfw":
-        features = filter_lfw(features)
-
-    # Comput BioCapsules for features using Reference Subjects
-    if args["mode"] == "bc":
-        print(f"Computing BCs: {datetime.datetime.now()}")
-
-        rs_features = get_rs_features()
-        rs_map = rs_rbac(len(np.unique(features[:, -1])), args["role_dist"])
-        cnts = np.unique(rs_map, return_counts=True)[1]
-        for i, cnt in enumerate(cnts):
-            fi.write(f"Role {i + 1} -- {cnt} Subjects\n")
-
-        bcs = get_bcs(features, rs_features)
-
-        print(f"Done Computing BCs: {datetime.datetime.now()}")
-
-    # TP, FP, FN, FP
-    conf_mat = np.zeros((4,))
-
-    print(f"Starting KFold Experiment: {datetime.datetime.now()}")
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-    for k, (train_index, test_index) in enumerate(
-        skf.split(features[:, :-1], features[:, -1])
-    ):
-        print(f"Fold {k} : {datetime.datetime.now()}")
-
-        if args["mode"] == "under":
-            X_train, y_train = (
-                features[:, :-1][train_index],
-                features[:, -1][train_index],
-            )
-            X_test, y_test = (
-                features[:, :-1][test_index],
-                features[:, -1][test_index],
-            )
-
-            clf = LogisticRegression(
-                class_weight="balanced", random_state=42
-            ).fit(X_train, y_train)
-
-            y_pred = clf.predict(X_test)
-
-            # Aggregate prediction results with respect to each subject
-            for subject_id in y_test:
-                y_test_subject = (y_test == subject_id).astype(int)
-                y_pred_subject = (y_pred == subject_id).astype(int)
-                conf_mat += confusion_matrix(
-                    y_test_subject, y_pred_subject
-                ).ravel()
-
-        else:
-            train_mask = np.zeros(
-                (train_index.shape[0] + test_index.shape[0]),
-                dtype=bool,
-            )
-            train_mask[train_index] = True
-            train_mask = np.concatenate(
-                [train_mask for _ in range(np.unique(rs_map).shape[0])]
-            )
-
-            test_mask = np.zeros(
-                (train_index.shape[0] + test_index.shape[0]),
-                dtype=bool,
-            )
-            test_mask[test_index] = True
-            test_mask = np.concatenate(
-                [test_mask for _ in range(np.unique(rs_map).shape[0])]
-            )
-
-            X_train, y_train_subject, y_train_rs = (
-                bcs[:, :-2][train_mask],
-                bcs[:, -2][train_mask],
-                bcs[:, -1][train_mask],
-            )
-            X_test, y_test_subject, y_test_rs = (
-                bcs[:, :-2][test_mask],
-                bcs[:, -2][test_mask],
-                bcs[:, -1][test_mask],
-            )
-
-            for subject_id in np.unique(bcs[:, -2]):
-                rs_id = float(rs_map[int(subject_id) - 1] + 1)
-
-                y_train = np.zeros(X_train.shape[0])
-                y_train[
-                    np.logical_and(
-                        y_train_subject == subject_id,
-                        y_train_rs == rs_id,
-                    )
-                ] = 1
-
-                y_test = np.zeros(X_test.shape[0])
-                y_test[
-                    np.logical_and(
-                        y_test_subject == subject_id,
-                        y_test_rs == rs_id,
-                    )
-                ] = 1
-
-                clf = LogisticRegression(
-                    class_weight="balanced", random_state=42
-                ).fit(X_train, y_train)
-
-                y_pred = clf.predict(X_test)
-
-                conf_mat += confusion_matrix(y_test, y_pred).ravel()
-
-    print(f"Finished KFold Experiment: {datetime.datetime.now()}")
-
-    # (tn + tp) / (tn + fp + fn + tp)
-    acc = (conf_mat[0] + conf_mat[3]) / np.sum(conf_mat)
-    # fp / (tn + fp)
-    far = conf_mat[1] / (conf_mat[0] + conf_mat[1])
-    # fn / (fn + tp)
-    frr = conf_mat[2] / (conf_mat[2] + conf_mat[3])
-
-    fi.write("Dataset -- {}\n".format(args["dataset"]))
-    fi.write("BC  -- {}\n".format(args["mode"]))
-    fi.write("RS  -- {}\n".format(args["role_dist"]))
-    fi.write("TN -- {}\n".format(conf_mat[0]))
-    fi.write("TP -- {}\n".format(conf_mat[3]))
-    fi.write("FP -- {}\n".format(conf_mat[1]))
-    fi.write("FN -- {}\n".format(conf_mat[2]))
-    fi.write("ACC -- {:.6f}\n".format(acc))
-    fi.write("FAR -- {:.6f}\n".format(far))
-    fi.write("FRR -- {:.6f}\n".format(frr))
-    fi.close()
+    experiment(
+        args["dataset"],
+        args["mode"],
+        args["role_dist"],
+        args["flipped"],
+        args["gpu"],
+    )

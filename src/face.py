@@ -18,13 +18,13 @@ class FaceNet:
 
     """
 
-    def __init__(self, gpu: int = -1):
+    def __init__(self, gpu: int = -1, detector: str = "mtcnn"):
         """Initialize FaceNet model object. Provide an int
         corresponding to a GPU id to use for models. If -1 is given
         CPU is used rather than GPU.
 
         """
-        self.__model = FaceNetModel(gpu)
+        self.__model = FaceNetModel(gpu, detector)
 
     def preprocess(self, face_img: np.ndarray) -> np.ndarray:
         """Preprocess facial image for FaceNet feature extraction
@@ -66,6 +66,9 @@ class FaceNet:
             face_img = self.preprocess(face_img)
 
         if face_img.shape != (160, 160, 3):
+            if len(face_img.shape) == 2:
+                face_img = cv2.cvtColor(face_img, cv2.COLOR_GRAY2BGR)
+
             face_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
             face_img = cv2.resize(face_img, (160, 160))
 
@@ -73,8 +76,8 @@ class FaceNet:
 
 
 class ArcFace:
-    def __init__(self, gpu: int = -1):
-        self.__model = ArcFaceModel(gpu)
+    def __init__(self, gpu: int = -1, detector: str = "mtcnn"):
+        self.__model = ArcFaceModel(gpu, detector)
 
     def preprocess(self, face_img: np.ndarray) -> np.ndarray:
         """Preprocess facial image for ArcFace feature extraction
@@ -115,6 +118,9 @@ class ArcFace:
             face_img = self.preprocess(face_img)
 
         if face_img.shape != (3, 112, 112):
+            if len(face_img.shape) == 2:
+                face_img = cv2.cvtColor(face_img, cv2.COLOR_GRAY2BGR)
+
             face_img = cv2.resize(face_img, (112, 112))
             face_img = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
             face_img = np.rollaxis(face_img, 2, 0)
@@ -123,34 +129,36 @@ class ArcFace:
 
 
 def extract_dataset(
-    dataset: str, extractor: str = "arcface", gpu: int = -1
-) -> np.ndarray:
+    dataset: str,
+    method: str = "arcface",
+    detector: str = "mtcnn",
+    flipped: bool = True,
+    gpu: int = -1,
+):
     """Extract feature vectors of each image within a dataset.
-    Return array conatining all extracted features.
+    Save array conatining all extracted features to disk.
 
     Parameters
     ----------
     dataset: str
         Dataset to extract features from. Examples would be gtdb or lfw
-    extractor: str = "arcface"
+    method: str = "arcface"
         Model to use for feature extraction. Currently supported options are
         arcface/facenet
+    detector: str = "mtcnn"
+        Model to use for facial preprocessing. Currently supported options are
+        mtcnn/retinaface
+    flipped: bool = True
+        Flag denoting if flipped features should be extracted
     gpu: int = -1
         GPU id to use for feature extraction and preprocessing models. If -1
         is given, CPU is used rather than GPU
 
-    Returns
-    -------
-    np.ndarray
-        Array of features corresponding each image from a dataset. Subject ids
-        are appended to end of feature vectors. Resulting output will be of
-        shape (number of dataset images)x513
-
     """
-    if extractor == "arcface":
-        face = ArcFace(gpu)
+    if method == "arcface":
+        face = ArcFace(gpu, detector)
     else:
-        face = FaceNet(gpu)
+        face = FaceNet(gpu, detector)
 
     dataset_path = f"images/{dataset}"
 
@@ -161,27 +169,53 @@ def extract_dataset(
         os.listdir(dataset_path), key=lambda subject: subject.lower()
     )
 
-    image_cnt = 0
+    img_cnt = 0
     for subject_id, subject in enumerate(subjects):
-        progress_bar(f"{dataset} {extractor}", (image_cnt + 1) / file_cnt)
+        progress_bar(f"{dataset} {method}", (img_cnt + 1) / file_cnt)
 
         for image in os.listdir(f"{dataset_path}/{subject}"):
-            image = cv2.imread(f"{dataset_path}/{subject}/{image}")
+            img = cv2.imread(f"{dataset_path}/{subject}/{image}")
 
-            feature = face.extract(image)
-            features[image_cnt, :] = np.append(feature, subject_id + 1)
+            feature = face.extract(img)
+            features[img_cnt, :] = np.append(feature, subject_id + 1)
 
-            image_cnt += 1
+            img_cnt += 1
 
-    return features
+    np.savez_compressed(
+        f"data/{dataset}_{method}_{detector}_feat.npz", features
+    )
+
+    if flipped:
+        flipped_features = np.zeros((file_cnt, 513))
+
+        img_cnt = 0
+        for subject_id, subject in enumerate(subjects):
+            progress_bar(
+                f"{dataset} {method} flipped", (img_cnt + 1) / file_cnt
+            )
+
+            for image in os.listdir(f"{dataset_path}/{subject}"):
+                img = cv2.imread(f"{dataset_path}/{subject}/{image}")
+                img = cv2.flip(img, 1)
+
+                flipped_feature = face.extract(img)
+                flipped_features[img_cnt, :] = np.append(
+                    flipped_feature, subject_id + 1
+                )
+
+                img_cnt += 1
+
+        np.savez_compressed(
+            f"data/{dataset}_{method}_{detector}_flip_feat.npz", features
+        )
 
 
 if __name__ == "__main__":
     """
-    facenet = FaceNet()
+    facenet = FaceNet(-1, "retinaface")
 
-    img_1 = cv2.imread("src/face_models/examples/tom1.jpg"))
-    img_2 = cv2.imread("src/face_models/examples/adrien.jpg"))
+    img_1 = cv2.imread("src/face_models/examples/tom1.jpg")
+    img_2 = cv2.imread("src/face_models/examples/adrien.jpg")
 
     feat_1 = facenet.extract(img_1)
     feat_2 = facenet.extract(img_2)
@@ -194,7 +228,7 @@ if __name__ == "__main__":
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-    arcface = ArcFace()
+    arcface = ArcFace(-1, "mtcnn")
 
     feat_1 = arcface.extract(img_1)
     feat_2 = arcface.extract(img_2)
@@ -204,13 +238,11 @@ if __name__ == "__main__":
     cv2.imshow("before", img_2)
     img = arcface.preprocess(img_2)
     cv2.imshow(
-        "after",
-        cv2.cvtColor(np.rollaxis(img, 0, 3), cv2.COLOR_RGB2BGR)
+        "after", cv2.cvtColor(np.rollaxis(img, 0, 3), cv2.COLOR_RGB2BGR)
     )
     cv2.waitKey(0)
     cv2.destroyAllWindows()
     """
-
     parser = ArgumentParser()
     parser.add_argument(
         "-d",
@@ -226,6 +258,21 @@ if __name__ == "__main__":
         help="method to use in feature extraction",
     )
     parser.add_argument(
+        "-det",
+        "--detector",
+        required=True,
+        choices=["mtcnn", "retinaface"],
+        help="method to use in facial preprocessing",
+    )
+    parser.add_argument(
+        "-f",
+        "--flipped",
+        required=False,
+        action="store_true",
+        default=False,
+        help="extract features for flipped versions of images",
+    )
+    parser.add_argument(
         "-gpu",
         "--gpu",
         required=False,
@@ -235,11 +282,10 @@ if __name__ == "__main__":
     )
     args = vars(parser.parse_args())
 
-    features = extract_dataset(args["dataset"], args["method"], args["gpu"])
-
-    np.savez_compressed(
-        os.path.join(
-            "data/{}_{}_feat.npz".format(args["dataset"], args["method"])
-        ),
-        features,
+    features = extract_dataset(
+        args["dataset"],
+        args["method"],
+        args["detector"],
+        args["flipped"],
+        args["gpu"],
     )

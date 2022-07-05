@@ -59,8 +59,10 @@ def nms(boxes, overlap_threshold, mode="Union"):
             overlap = inter / (area[i] + area[idxs[:last]] - inter)
 
         # delete all indexes from the index list that have
-        idxs = np.delete(idxs, np.concatenate(([last],
-                                               np.where(overlap > overlap_threshold)[0])))
+        idxs = np.delete(
+            idxs,
+            np.concatenate(([last], np.where(overlap > overlap_threshold)[0])),
+        )
 
     return pick
 
@@ -119,14 +121,16 @@ def generate_bbox(map, reg, scale, threshold):
 
     reg = np.array([dx1, dy1, dx2, dy2])
     score = map[t_index[0], t_index[1]]
-    boundingbox = np.vstack([np.round((stride * t_index[1] + 1) / scale),
-                             np.round((stride * t_index[0] + 1) / scale),
-                             np.round(
-                                 (stride * t_index[1] + 1 + cellsize) / scale),
-                             np.round(
-                                 (stride * t_index[0] + 1 + cellsize) / scale),
-                             score,
-                             reg])
+    boundingbox = np.vstack(
+        [
+            np.round((stride * t_index[1] + 1) / scale),
+            np.round((stride * t_index[0] + 1) / scale),
+            np.round((stride * t_index[1] + 1 + cellsize) / scale),
+            np.round((stride * t_index[0] + 1 + cellsize) / scale),
+            score,
+            reg,
+        ]
+    )
 
     return boundingbox.T
 

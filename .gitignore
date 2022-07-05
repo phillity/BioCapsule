@@ -10,9 +10,7 @@ __pycache__
 *.npz
 *.hdf5
 
-src/face_models/model-ir-v1
-src/face_models/model-mtcnn
-src/face_models/model-r100-ii
+src/face_models/models
 
 images/rs
 images/rs_aligned

@@ -1,1 +1,1 @@
-from face_models.face_model import ArcFaceModel, FaceNetModel
+from .face_model import ArcFaceModel, FaceNetModel
